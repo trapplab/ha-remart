@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 import aiohttp
-from PIL import UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError
 
 from homeassistant.components import media_source
 from homeassistant.components.media_player import (
@@ -30,7 +30,7 @@ from .const import (
 )
 from .frame import FrameError
 from .imaging import fit_to_frame, make_preview
-from .media_source import parse_identifier
+from .media_source import parse_frame_identifier, parse_identifier
 from .models import RemArtConfigEntry
 from .sources import Artwork
 
@@ -66,7 +66,9 @@ class FrameArtPlayer(MediaPlayerEntity):
         self._entry = entry
         self._frame = entry.runtime_data.frame
         self._gallery = entry.runtime_data.gallery
+        self._catalog = entry.runtime_data.catalog
         self._preview: bytes | None = None
+        self._shown_content_id: str | None = None
         self._attr_unique_id = entry.unique_id or entry.entry_id
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._attr_unique_id)},
@@ -103,8 +105,16 @@ class FrameArtPlayer(MediaPlayerEntity):
         self, media_id: str, *, title: str | None = None, artist: str | None = None
     ) -> str:
         """Load, fit and upload an image, then show it. Returns the content id."""
+        artwork: Artwork | None = None
         if media_source.is_media_source_id(media_id):
-            artwork = await self._async_gallery_artwork(media_id)
+            item = media_source.MediaSourceItem.from_uri(self.hass, media_id, None)
+            if item.domain == DOMAIN:
+                stored = parse_frame_identifier(item.identifier)
+                if stored and stored[0] == self._entry.entry_id and stored[1]:
+                    await self.async_select_stored(stored[1], media_id)
+                    return stored[1]
+                if stored is None:
+                    artwork = await self._async_gallery_artwork(item.identifier)
             if artwork:
                 title, artist = artwork.title, artwork.artist
             play = await media_source.async_resolve_media(
@@ -119,9 +129,32 @@ class FrameArtPlayer(MediaPlayerEntity):
         else:
             data = await self._async_download(media_id)
 
+        content_id = await self.async_show_image(
+            data, media_id=media_id, title=title, artist=artist
+        )
+        if artwork:
+            self.hass.async_create_background_task(
+                self._gallery.async_track_use(artwork), "remart track use"
+            )
+        return content_id
+
+    async def async_show_image(
+        self,
+        data: bytes,
+        *,
+        media_id: str | None = None,
+        title: str | None = None,
+        artist: str | None = None,
+    ) -> str:
+        """Fit and upload image bytes, then show them. Returns the content id."""
         try:
             jpeg, preview = await self.hass.async_add_executor_job(_prepare, data)
-        except (UnidentifiedImageError, OSError) as err:
+        except (
+            UnidentifiedImageError,
+            Image.DecompressionBombError,
+            OSError,
+            ValueError,
+        ) as err:
             raise HomeAssistantError(f"Not a usable image: {err}") from err
 
         try:
@@ -129,15 +162,60 @@ class FrameArtPlayer(MediaPlayerEntity):
         except FrameError as err:
             raise HomeAssistantError(str(err)) from err
         self._async_store_token()
+        self._frame.cache_thumbnail(content_id, preview)
+        self._catalog.add(content_id, title, artist)
+        self._set_shown(content_id, media_id, preview, title, artist)
+        return content_id
 
+    async def async_select_stored(
+        self, content_id: str, media_id: str | None = None
+    ) -> None:
+        """Show an image that is already on the Frame."""
+        try:
+            await self._frame.async_select(self.hass, content_id)
+        except FrameError as err:
+            raise HomeAssistantError(str(err)) from err
+        known = self._catalog.get(content_id)
+        preview = self._frame.cached_thumbnail(content_id)
+        self._set_shown(
+            content_id,
+            media_id,
+            preview,
+            known["title"] if known else None,
+            known["artist"] if known else None,
+        )
+        if preview is None:
+            self.hass.async_create_background_task(
+                self._async_load_preview(content_id), "remart preview"
+            )
+
+    async def _async_load_preview(self, content_id: str) -> None:
+        """Fetch the thumbnail of a selected image for the entity picture."""
+        preview = await self._frame.async_thumbnail(self.hass, content_id)
+        if preview is None or self._attr_media_image_hash is not None:
+            return
+        if self._shown_content_id != content_id:
+            return
         self._preview = preview
         self._attr_media_image_hash = content_id
-        self._attr_media_content_id = media_id
+        self.async_write_ha_state()
+
+    def _set_shown(
+        self,
+        content_id: str,
+        media_id: str | None,
+        preview: bytes | None,
+        title: str | None,
+        artist: str | None,
+    ) -> None:
+        self._shown_content_id = content_id
+        self._preview = preview
+        self._attr_media_image_hash = content_id if preview else None
+        self._attr_media_content_id = media_id or content_id
         self._attr_media_title = title
         self._attr_media_artist = artist
         self._attr_state = MediaPlayerState.ON
         self.async_write_ha_state()
-        return content_id
 
     async def async_generate_and_show(
         self, description: str, ai_task_entity: str | None = None
@@ -175,11 +253,8 @@ class FrameArtPlayer(MediaPlayerEntity):
             "revised_prompt": result.get("revised_prompt"),
         }
 
-    async def _async_gallery_artwork(self, media_id: str) -> Artwork | None:
-        item = media_source.MediaSourceItem.from_uri(self.hass, media_id, None)
-        if item.domain != DOMAIN:
-            return None
-        parsed = parse_identifier(item.identifier)
+    async def _async_gallery_artwork(self, identifier: str) -> Artwork | None:
+        parsed = parse_identifier(identifier)
         if parsed.artwork_id is None:
             return None
         return await self._gallery.async_get_artwork(

@@ -2,12 +2,12 @@
 
 Show art on a Samsung Frame TV from Home Assistant:
 
-- **Gallery**: browse public-domain artworks from nine museum sources in the media browser and send one to the Frame with a click.
+- **Gallery**: browse public-domain artworks from nine museum sources and photos from Unsplash and Pixabay in the media browser and send one to the Frame with a click.
+- **Drag & drop**: drop your own pictures onto the RemArt Frame card to show them on the TV.
+- **On the Frame**: see the images stored on the TV, with the one currently shown first, and switch between them without uploading again.
 - **AI art by voice**: tell your voice assistant what you want to see. Home Assistant generates the image and shows it on the Frame.
 
 Images are letterboxed to 16:9 on black before upload, so the Frame never stretches them.
-
-Companion to the [RemArt](https://github.com/trapplab/RemArt) app; the museum sources are ported from it.
 
 ## Requirements
 
@@ -31,8 +31,27 @@ Open *Media* in the sidebar, pick the Frame as the target player (bottom right),
 | --- | --- |
 | Art Institute of Chicago, The Met (European Paintings), Cleveland Museum of Art, SMK, Minneapolis Institute of Art, Wikimedia Commons | not needed |
 | Rijksmuseum, Europeana, Smithsonian (api.data.gov) | needed, enter it in the options |
+| Unsplash, Pixabay (photos) | needed, free at [unsplash.com/developers](https://unsplash.com/developers) and [pixabay.com/api/docs](https://pixabay.com/api/docs/) |
 
-Choose sources, API keys, the matte (passe-partout) and the image prompt prefix under *Configure* on the integration.
+Choose sources, API keys, the photo search terms for Unsplash and Pixabay (default `landscape`), the matte (passe-partout) and the image prompt prefix under *Configure* on the integration.
+
+Unsplash and Pixabay photos are licensed by their photographers under the Unsplash and Pixabay licenses; the photographer is shown as the artist.
+
+## On the Frame
+
+*Media → RemArt → On the Frame* lists the pictures stored in the TV's *My Photos*. The one currently shown comes first and is marked *(shown)*. Picking one shows it right away, without another upload. Thumbnails come from the TV and are cached. Images uploaded through RemArt keep their titles.
+
+## Drag & drop card
+
+The integration ships a dashboard card. Add it in the dashboard editor (*Add card → RemArt Frame*) or in YAML:
+
+```yaml
+type: custom:remart-frame-card
+entity: media_player.living_room_frame
+# title: Living room  # optional
+```
+
+Drop one or more images onto the card, or click it to choose files, and each image is shown on the Frame. Images dragged from another browser tab work too. Below the drop zone the card shows the pictures stored on the Frame; click one to show it.
 
 The Frame entity also takes any image URL or media source item, e.g. in an automation:
 

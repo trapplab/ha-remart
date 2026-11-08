@@ -1,6 +1,7 @@
 """Talk to the Samsung Frame's art channel."""
 
 import asyncio
+from collections import OrderedDict
 from dataclasses import dataclass
 import logging
 import time
@@ -21,6 +22,13 @@ UPLOAD_TIMEOUT = 30
 ACK_TIMEOUT = 5
 # Without this pause the TV can still show the previous image.
 INDEX_DELAY = 0.8
+# Listing and thumbnails are small but slow on busy TVs.
+QUERY_TIMEOUT = 15
+# Thumbnails kept in memory per Frame (about 30 kB each).
+THUMB_CACHE_SIZE = 300
+# A media browser grid asks for its thumbnails within a few milliseconds;
+# collect them into one request to the TV.
+THUMB_BATCH_DELAY = 0.1
 
 
 class FrameError(Exception):
@@ -29,6 +37,14 @@ class FrameError(Exception):
 
 class NotAFrameError(FrameError):
     """Raised when the TV does not support art mode."""
+
+
+@dataclass(frozen=True, slots=True)
+class StoredArt:
+    """An image in the Frame's "My Photos" category."""
+
+    content_id: str
+    date: str | None = None
 
 
 @dataclass(slots=True)
@@ -50,6 +66,9 @@ class FrameClient:
         self.token = token
         self.matte = matte
         self._lock = asyncio.Lock()
+        self._thumbs: OrderedDict[str, bytes] = OrderedDict()
+        self._thumb_waiters: dict[str, asyncio.Future[bytes | None]] = {}
+        self._thumb_task: asyncio.Task[None] | None = None
 
     def _art(self, timeout: float) -> SamsungTVArt:
         return SamsungTVArt(
@@ -104,25 +123,7 @@ class FrameClient:
             )
             _LOGGER.debug("Uploaded %d bytes as %s", len(jpeg), content_id)
             time.sleep(INDEX_DELAY)
-
-            assert art.connection
-            art.connection.settimeout(ACK_TIMEOUT)
-            # The TV does not answer set_artmode_status when art mode is
-            # already on, so ask first.
-            try:
-                mode = art.get_artmode()
-            except ConnectionFailure, ResponseError:
-                mode = None
-            if mode != "on":
-                try:
-                    art.set_artmode("on")
-                except ConnectionFailure, ResponseError:
-                    _LOGGER.debug("No ACK for set_artmode, continuing")
-            try:
-                art.select_image(content_id, category=MY_PICTURES_CATEGORY, show=True)
-            except ConnectionFailure, ResponseError:
-                # Some firmwares never answer but show the new upload anyway.
-                _LOGGER.debug("No ACK for select_image, continuing")
+            self._activate(art, content_id)
         except (ConnectionFailure, OSError, WebSocketException) as err:
             raise FrameError(f"Frame at {self.host} failed: {err}") from err
         except ResponseError as err:
@@ -132,3 +133,143 @@ class FrameClient:
         if art.token:
             self.token = art.token
         return content_id
+
+    async def async_list(
+        self, hass: HomeAssistant
+    ) -> tuple[list[StoredArt], str | None]:
+        """Return the uploaded images, newest first, and the shown content id."""
+        async with self._lock:
+            return await hass.async_add_executor_job(self._list)
+
+    def _list(self) -> tuple[list[StoredArt], str | None]:
+        art = self._art(QUERY_TIMEOUT)
+        try:
+            art.open()
+            items = art.available(MY_PICTURES_CATEGORY)
+            assert art.connection
+            art.connection.settimeout(ACK_TIMEOUT)
+            try:
+                current = (art.get_current() or {}).get("content_id")
+            except ConnectionFailure, ResponseError:
+                current = None
+        except (ConnectionFailure, OSError, WebSocketException) as err:
+            raise FrameError(f"Frame at {self.host} failed: {err}") from err
+        except (ResponseError, KeyError, TypeError, ValueError) as err:
+            raise FrameError(f"Frame at {self.host} sent no art list: {err}") from err
+        finally:
+            art.close()
+        stored = [
+            StoredArt(str(item["content_id"]), item.get("image_date") or None)
+            for item in items or []
+            if isinstance(item, dict) and item.get("content_id")
+        ]
+        stored.sort(key=lambda a: a.date or "", reverse=True)
+        return stored, current
+
+    async def async_select(self, hass: HomeAssistant, content_id: str) -> None:
+        """Show an image that is already stored on the Frame."""
+        async with self._lock:
+            await hass.async_add_executor_job(self._select, content_id)
+
+    def _select(self, content_id: str) -> None:
+        art = self._art(QUERY_TIMEOUT)
+        try:
+            art.open()
+            self._activate(art, content_id)
+        except (ConnectionFailure, OSError, WebSocketException) as err:
+            raise FrameError(f"Frame at {self.host} failed: {err}") from err
+        finally:
+            art.close()
+
+    def _activate(self, art: SamsungTVArt, content_id: str) -> None:
+        """Switch to art mode and show ``content_id`` on an open connection."""
+        assert art.connection
+        art.connection.settimeout(ACK_TIMEOUT)
+        # The TV does not answer set_artmode_status when art mode is
+        # already on, so ask first.
+        try:
+            mode = art.get_artmode()
+        except ConnectionFailure, ResponseError:
+            mode = None
+        if mode != "on":
+            try:
+                art.set_artmode("on")
+            except ConnectionFailure, ResponseError:
+                _LOGGER.debug("No ACK for set_artmode, continuing")
+        try:
+            art.select_image(content_id, category=MY_PICTURES_CATEGORY, show=True)
+        except ConnectionFailure, ResponseError:
+            # Some firmwares never answer but show the image anyway.
+            _LOGGER.debug("No ACK for select_image, continuing")
+
+    def cached_thumbnail(self, content_id: str) -> bytes | None:
+        """Return a thumbnail without asking the TV."""
+        return self._thumbs.get(content_id)
+
+    def cache_thumbnail(self, content_id: str, jpeg: bytes) -> None:
+        """Remember a thumbnail, e.g. the preview of a fresh upload."""
+        self._thumbs[content_id] = jpeg
+        self._thumbs.move_to_end(content_id)
+        while len(self._thumbs) > THUMB_CACHE_SIZE:
+            self._thumbs.popitem(last=False)
+
+    async def async_thumbnail(
+        self, hass: HomeAssistant, content_id: str
+    ) -> bytes | None:
+        """Return a thumbnail of a stored image, or None if the TV has none.
+
+        Requests arriving while the TV is busy are fetched together over one
+        connection, so a grid of thumbnails does not open a socket per image.
+        """
+        if (cached := self._thumbs.get(content_id)) is not None:
+            return cached
+        future = self._thumb_waiters.get(content_id)
+        if future is None:
+            future = hass.loop.create_future()
+            self._thumb_waiters[content_id] = future
+            if self._thumb_task is None or self._thumb_task.done():
+                self._thumb_task = hass.async_create_background_task(
+                    self._async_fetch_thumbnails(hass), "remart thumbnails"
+                )
+        return await asyncio.shield(future)
+
+    async def _async_fetch_thumbnails(self, hass: HomeAssistant) -> None:
+        while self._thumb_waiters:
+            await asyncio.sleep(THUMB_BATCH_DELAY)
+            async with self._lock:
+                batch = self._thumb_waiters
+                self._thumb_waiters = {}
+                try:
+                    found = await hass.async_add_executor_job(
+                        self._thumbnails, list(batch)
+                    )
+                except FrameError as err:
+                    _LOGGER.debug("Thumbnails failed: %s", err)
+                    found = {}
+            for content_id, future in batch.items():
+                data = found.get(content_id)
+                if data is not None:
+                    self.cache_thumbnail(content_id, data)
+                if not future.done():
+                    future.set_result(data)
+
+    def _thumbnails(self, content_ids: list[str]) -> dict[str, bytes]:
+        art = self._art(QUERY_TIMEOUT)
+        found: dict[str, bytes] = {}
+        try:
+            art.open()
+            for content_id in content_ids:
+                try:
+                    data = art.get_thumbnail(content_id)
+                except ResponseError as err:
+                    _LOGGER.debug("No thumbnail for %s: %s", content_id, err)
+                    continue
+                if isinstance(data, (bytes, bytearray)) and data:
+                    found[content_id] = bytes(data)
+        except (ConnectionFailure, OSError, WebSocketException) as err:
+            if not found:
+                raise FrameError(f"Frame at {self.host} failed: {err}") from err
+            _LOGGER.debug("Thumbnail batch cut short: %s", err)
+        finally:
+            art.close()
+        return found

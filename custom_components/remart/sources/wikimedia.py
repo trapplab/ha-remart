@@ -24,9 +24,14 @@ class WikimediaSource(ArtSource):
     _api = "https://commons.wikimedia.org/w/api.php"
     _category = "Category:Paintings"
 
-    def __init__(self, session: aiohttp.ClientSession, api_key: str | None = None):
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        api_key: str | None = None,
+        query: str | None = None,
+    ):
         """Initialize the source."""
-        super().__init__(session, api_key)
+        super().__init__(session, api_key, query)
         self._continue_tokens: dict[int, str | None] = {1: None}
 
     @override

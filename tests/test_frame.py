@@ -1,5 +1,6 @@
 """Tests for the TV client (samsungtvws mocked)."""
 
+import asyncio
 from unittest.mock import patch
 
 import pytest
@@ -114,3 +115,64 @@ def test_pair_unreachable(art) -> None:
     art._get_rest_api.return_value.rest_device_info.side_effect = OSError("timeout")
     with pytest.raises(FrameError, match="Cannot reach"):
         FrameClient("h", 8002, None, "none").pair()
+
+
+async def test_list_stored(hass: HomeAssistant, art) -> None:
+    """Uploads are listed newest first with the shown content id."""
+    art.available.return_value = [
+        {"content_id": "MY_F0001", "image_date": "2026:01:01 10:00:00"},
+        {"content_id": "MY_F0002", "image_date": "2026:03:01 10:00:00"},
+        {"no_id": True},
+    ]
+    art.get_current.return_value = {"content_id": "MY_F0001"}
+    stored, current = await FrameClient("h", 8002, None, "none").async_list(hass)
+    assert [a.content_id for a in stored] == ["MY_F0002", "MY_F0001"]
+    assert current == "MY_F0001"
+    art.available.assert_called_once_with("MY-C0002")
+    art.close.assert_called_once()
+
+
+async def test_list_failures(hass: HomeAssistant, art) -> None:
+    """A missing current image is fine; a failed list is a FrameError."""
+    art.available.return_value = []
+    art.get_current.side_effect = ConnectionFailure("Websocket Time out")
+    client = FrameClient("h", 8002, None, "none")
+    assert await client.async_list(hass) == ([], None)
+    art.available.side_effect = ResponseError("error number -1")
+    with pytest.raises(FrameError, match="no art list"):
+        await client.async_list(hass)
+
+
+async def test_select_stored(hass: HomeAssistant, art) -> None:
+    """Selecting turns art mode on and shows the image without an upload."""
+    await FrameClient("h", 8002, None, "none").async_select(hass, "MY_F0007")
+    art.upload.assert_not_called()
+    art.set_artmode.assert_called_once_with("on")
+    art.select_image.assert_called_once_with("MY_F0007", category="MY-C0002", show=True)
+
+
+async def test_thumbnails_are_batched_and_cached(hass: HomeAssistant, art) -> None:
+    """Parallel requests share one connection; results are cached."""
+    art.get_thumbnail.side_effect = lambda cid: (
+        None if cid == "MY_F0003" else f"jpg-{cid}".encode()
+    )
+    client = FrameClient("h", 8002, None, "none")
+    results = await asyncio.gather(
+        *(client.async_thumbnail(hass, f"MY_F000{i}") for i in (1, 2, 3, 1))
+    )
+    assert results == [b"jpg-MY_F0001", b"jpg-MY_F0002", None, b"jpg-MY_F0001"]
+    assert art.open.call_count == 1
+    assert art.get_thumbnail.call_count == 3
+
+    assert await client.async_thumbnail(hass, "MY_F0002") == b"jpg-MY_F0002"
+    assert art.open.call_count == 1
+
+    client.cache_thumbnail("MY_F0009", b"preview")
+    assert await client.async_thumbnail(hass, "MY_F0009") == b"preview"
+
+
+async def test_thumbnails_unreachable(hass: HomeAssistant, art) -> None:
+    """An offline TV yields no thumbnail instead of an error."""
+    art.open.side_effect = OSError("No route to host")
+    client = FrameClient("h", 8002, None, "none")
+    assert await client.async_thumbnail(hass, "MY_F0001") is None

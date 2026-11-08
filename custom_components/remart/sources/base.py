@@ -24,6 +24,8 @@ class Artwork:
     date: str | None = None
     license_text: str = "Public Domain"
     license_url: str | None = None
+    # Called when the artwork is shown, for APIs that count uses.
+    track_url: str | None = None
 
 
 class ArtSource(ABC):
@@ -32,18 +34,34 @@ class ArtSource(ABC):
     source_id: ClassVar[str]
     name: ClassVar[str]
     requires_api_key: ClassVar[bool] = False
+    # Photo libraries are searched with the configured terms.
+    searchable: ClassVar[bool] = False
 
-    def __init__(self, session: aiohttp.ClientSession, api_key: str | None = None):
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        api_key: str | None = None,
+        query: str | None = None,
+    ):
         """Initialize the source."""
         self._session = session
         self._api_key = api_key
+        self._query = query
+
+    async def async_track_use(self, artwork: Artwork) -> None:  # noqa: B027
+        """Tell the source an artwork was shown. Most sources do not care."""
 
     @abstractmethod
     async def fetch_page(self, page: int, page_size: int) -> list[Artwork]:
         """Return a 1-based page of artworks, or [] when there are no more."""
 
     async def _get_json(
-        self, url: str | URL, params: Any = None, *, json: Any = None
+        self,
+        url: str | URL,
+        params: Any = None,
+        *,
+        json: Any = None,
+        headers: dict[str, str] | None = None,
     ) -> Any:
         method = "POST" if json is not None else "GET"
         async with self._session.request(
@@ -52,7 +70,7 @@ class ArtSource(ABC):
             params=params,
             json=json,
             timeout=REQUEST_TIMEOUT,
-            headers={"User-Agent": USER_AGENT},
+            headers={"User-Agent": USER_AGENT, **(headers or {})},
         ) as resp:
             resp.raise_for_status()
             return await resp.json(content_type=None)

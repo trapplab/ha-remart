@@ -1,4 +1,4 @@
-"""Museum art sources."""
+"""Museum and photo sources."""
 
 from .base import ArtSource, Artwork
 from .museums import (
@@ -11,6 +11,7 @@ from .museums import (
     SmithsonianSource,
     SmkSource,
 )
+from .photos import PixabaySource, UnsplashSource
 from .wikimedia import WikimediaSource
 
 SOURCES: dict[str, type[ArtSource]] = {
@@ -25,6 +26,8 @@ SOURCES: dict[str, type[ArtSource]] = {
         RijksSource,
         EuropeanaSource,
         SmithsonianSource,
+        UnsplashSource,
+        PixabaySource,
     )
 }
 

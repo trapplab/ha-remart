@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 
+from .catalog import Catalog
 from .frame import FrameClient
 from .gallery import Gallery
 
@@ -18,6 +19,7 @@ class RemArtData:
 
     frame: FrameClient
     gallery: Gallery
+    catalog: Catalog
     player: FrameArtPlayer | None = None
 
 

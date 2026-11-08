@@ -34,7 +34,13 @@ def _image_size(jpeg: bytes) -> tuple[int, int]:
 async def test_browse(hass: HomeAssistant, setup_entry, mock_page) -> None:
     """Root lists sources, a source lists artworks plus a next page link."""
     root = await media_source.async_browse_media(hass, "media-source://remart")
-    assert [c.title for c in root.children] == ["Art Institute of Chicago"]
+    assert [c.title for c in root.children] == [
+        "On the Frame",
+        "Art Institute of Chicago",
+    ]
+    assert root.children[0].media_content_id == (
+        f"media-source://remart/on_frame/{setup_entry.entry_id}"
+    )
 
     page = await media_source.async_browse_media(hass, "media-source://remart/chicago")
     art, nxt = page.children

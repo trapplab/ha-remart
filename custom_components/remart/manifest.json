@@ -1,10 +1,10 @@
 {
   "domain": "remart",
   "name": "RemArt Frame",
-  "after_dependencies": ["ai_task", "llm"],
+  "after_dependencies": ["ai_task", "frontend", "llm"],
   "codeowners": ["@trapplab"],
   "config_flow": true,
-  "dependencies": ["http", "media_source"],
+  "dependencies": ["http", "media_source", "websocket_api"],
   "documentation": "https://github.com/trapplab/ha-remart",
   "integration_type": "device",
   "iot_class": "local_push",

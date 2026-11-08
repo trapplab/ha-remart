@@ -20,6 +20,7 @@ class Gallery:
         session: aiohttp.ClientSession,
         enabled: list[str],
         api_keys: dict[str, str],
+        query: str | None = None,
     ) -> None:
         """Initialize the gallery."""
         self.sources: dict[str, ArtSource] = {}
@@ -30,7 +31,7 @@ class Gallery:
             key = api_keys.get(source_id) or None
             if cls.requires_api_key and not key:
                 continue
-            self.sources[source_id] = cls(session, key)
+            self.sources[source_id] = cls(session, key, query)
         self._pages: dict[tuple[str, int], tuple[float, list[Artwork]]] = {}
 
     async def async_get_page(self, source_id: str, page: int) -> list[Artwork]:
@@ -54,3 +55,8 @@ class Gallery:
             if artwork.id == artwork_id:
                 return artwork
         return None
+
+    async def async_track_use(self, artwork: Artwork) -> None:
+        """Report a shown artwork to its source."""
+        if source := self.sources.get(artwork.source_id):
+            await source.async_track_use(artwork)

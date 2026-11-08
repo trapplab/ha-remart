@@ -19,13 +19,14 @@ from custom_components.remart.sources.museums import (
     SmithsonianSource,
     SmkSource,
 )
+from custom_components.remart.sources.photos import PixabaySource, UnsplashSource
 from custom_components.remart.sources.wikimedia import WikimediaSource
 
 from .conftest import load_fixture
 
 
 def test_registry() -> None:
-    """All nine RemArt sources are ported; keyed ones are not default."""
+    """Museums plus photo libraries; keyed ones are not default."""
     assert set(SOURCES) == {
         "chicago",
         "met",
@@ -36,6 +37,8 @@ def test_registry() -> None:
         "rijks",
         "europeana",
         "smithsonian",
+        "unsplash",
+        "pixabay",
     }
     assert set(KEYLESS_SOURCES) == {
         "chicago",
@@ -173,7 +176,13 @@ async def test_wikimedia_paging(hass: HomeAssistant, aioclient_mock) -> None:
 async def test_keyed_sources_need_key(hass: HomeAssistant, aioclient_mock) -> None:
     """Without a key, keyed sources return nothing and make no request."""
     session = async_get_clientsession(hass)
-    for cls in (RijksSource, EuropeanaSource, SmithsonianSource):
+    for cls in (
+        RijksSource,
+        EuropeanaSource,
+        SmithsonianSource,
+        UnsplashSource,
+        PixabaySource,
+    ):
         assert await cls(session).fetch_page(1, 20) == []
     assert aioclient_mock.call_count == 0
 
@@ -273,3 +282,90 @@ async def test_rijks_and_smithsonian(hass: HomeAssistant, aioclient_mock) -> Non
         "1870s",
         "https://s/i.jpg",
     )
+
+
+async def test_pixabay(hass: HomeAssistant, aioclient_mock) -> None:
+    """Pixabay searches the configured terms and stops at its 500 hit limit."""
+    aioclient_mock.get(
+        "https://pixabay.com/api/",
+        json={
+            "totalHits": 500,
+            "hits": [
+                {
+                    "id": 195893,
+                    "tags": "blossom, bloom, flower, spring",
+                    "largeImageURL": "https://pixabay.com/get/large.jpg",
+                    "webformatURL": "https://pixabay.com/get/web.jpg",
+                    "user": "Josch13",
+                },
+                {"id": 2, "tags": "", "previewURL": "https://p/no-large.jpg"},
+            ],
+        },
+    )
+    source = PixabaySource(async_get_clientsession(hass), "key", "foggy forest")
+    (art,) = await source.fetch_page(2, 20)
+    assert (art.id, art.title, art.artist) == (
+        "195893",
+        "Blossom, bloom, flower",
+        "Josch13",
+    )
+    assert art.image_url == "https://pixabay.com/get/large.jpg"
+    assert art.thumb_url == "https://pixabay.com/get/web.jpg"
+    query = aioclient_mock.mock_calls[0][1].query
+    assert (query["key"], query["q"], query["page"], query["per_page"]) == (
+        "key",
+        "foggy forest",
+        "2",
+        "20",
+    )
+    assert await source.fetch_page(26, 20) == []
+    assert aioclient_mock.call_count == 1
+
+
+async def test_unsplash(hass: HomeAssistant, aioclient_mock) -> None:
+    """Unsplash asks for a 4K JPEG and reports shown photos."""
+    aioclient_mock.get(
+        "https://api.unsplash.com/search/photos",
+        json={
+            "total": 1,
+            "total_pages": 1,
+            "results": [
+                {
+                    "id": "Dwu85P9SOIk",
+                    "created_at": "2016-05-03T11:00:28Z",
+                    "description": None,
+                    "alt_description": "green mountains under a cloudy sky",
+                    "urls": {
+                        "raw": "https://images.unsplash.com/photo-1?ixid=abc",
+                        "full": "https://images.unsplash.com/photo-1?full",
+                        "small": "https://images.unsplash.com/photo-1?w=400",
+                    },
+                    "user": {"name": "Jane Doe"},
+                    "links": {
+                        "download_location": (
+                            "https://api.unsplash.com/photos/Dwu85P9SOIk/download"
+                        )
+                    },
+                }
+            ],
+        },
+    )
+    aioclient_mock.get(
+        "https://api.unsplash.com/photos/Dwu85P9SOIk/download", json={"url": "x"}
+    )
+    source = UnsplashSource(async_get_clientsession(hass), "access", None)
+    (art,) = await source.fetch_page(1, 20)
+    assert art.title == "green mountains under a cloudy sky"
+    assert (art.artist, art.date) == ("Jane Doe", "2016-05-03")
+    assert art.image_url == (
+        "https://images.unsplash.com/photo-1?ixid=abc&w=3840&fm=jpg&q=85&fit=max"
+    )
+    _, url, _, headers = aioclient_mock.mock_calls[0]
+    assert url.query["query"] == "landscape"
+    assert headers["Authorization"] == "Client-ID access"
+
+    await source.async_track_use(art)
+    assert aioclient_mock.mock_calls[-1][1].path == "/photos/Dwu85P9SOIk/download"
+
+    # Past the last page nothing is returned.
+    assert await source.fetch_page(2, 20) == []

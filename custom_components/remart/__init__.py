@@ -9,13 +9,17 @@ from homeassistant.helpers import config_validation as cv, service
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
+from .api import async_setup_api
+from .catalog import Catalog
 from .const import (
     ATTR_AI_TASK_ENTITY,
     ATTR_DESCRIPTION,
     CONF_MATTE,
+    CONF_PHOTO_QUERY,
     CONF_SOURCES,
     CONF_TOKEN,
     DEFAULT_MATTE,
+    DEFAULT_PHOTO_QUERY,
     DOMAIN,
     SERVICE_GENERATE_AND_SHOW,
 )
@@ -48,6 +52,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         func="async_generate_and_show",
         supports_response=SupportsResponse.OPTIONAL,
     )
+    await async_setup_api(hass)
     return True
 
 
@@ -64,8 +69,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: RemArtConfigEntry) -> bo
         async_get_clientsession(hass),
         options.get(CONF_SOURCES, KEYLESS_SOURCES),
         {sid: options.get(api_key_option(sid), "") for sid in SOURCES},
+        options.get(CONF_PHOTO_QUERY) or DEFAULT_PHOTO_QUERY,
     )
-    entry.runtime_data = RemArtData(frame=frame, gallery=gallery)
+    catalog = Catalog(hass, entry.entry_id)
+    await catalog.async_load()
+    entry.runtime_data = RemArtData(frame=frame, gallery=gallery, catalog=catalog)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -73,3 +81,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: RemArtConfigEntry) -> bo
 async def async_unload_entry(hass: HomeAssistant, entry: RemArtConfigEntry) -> bool:
     """Unload a config entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: RemArtConfigEntry) -> None:
+    """Delete the titles remembered for a removed Frame."""
+    await Catalog(hass, entry.entry_id).async_remove()

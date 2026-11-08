@@ -24,10 +24,12 @@ from homeassistant.helpers.selector import (
 from . import api_key_option
 from .const import (
     CONF_MATTE,
+    CONF_PHOTO_QUERY,
     CONF_PROMPT_PREFIX,
     CONF_SOURCES,
     CONF_TOKEN,
     DEFAULT_MATTE,
+    DEFAULT_PHOTO_QUERY,
     DEFAULT_PORT,
     DEFAULT_PROMPT_PREFIX,
     DOMAIN,
@@ -114,6 +116,7 @@ class RemArtOptionsFlow(OptionsFlowWithReload):
                 schema[probatio.Optional(api_key_option(sid))] = TextSelector(
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 )
+        schema[probatio.Optional(CONF_PHOTO_QUERY)] = str
         schema[probatio.Required(CONF_MATTE)] = str
         schema[probatio.Required(CONF_PROMPT_PREFIX)] = TextSelector(
             TextSelectorConfig(multiline=True)
@@ -122,6 +125,7 @@ class RemArtOptionsFlow(OptionsFlowWithReload):
         current = {
             CONF_SOURCES: KEYLESS_SOURCES,
             CONF_MATTE: DEFAULT_MATTE,
+            CONF_PHOTO_QUERY: DEFAULT_PHOTO_QUERY,
             CONF_PROMPT_PREFIX: DEFAULT_PROMPT_PREFIX,
             **self.config_entry.options,
         }

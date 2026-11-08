@@ -31,11 +31,15 @@
           "rijks_api_key": "Rijksmuseum-API-Key",
           "europeana_api_key": "Europeana-API-Key",
           "smithsonian_api_key": "Smithsonian-API-Key (api.data.gov)",
+          "unsplash_api_key": "Unsplash-Access-Key",
+          "pixabay_api_key": "Pixabay-API-Key",
+          "photo_query": "Suchbegriffe für Fotos",
           "matte": "Passepartout",
           "prompt_prefix": "Präfix für Bild-Prompts"
         },
         "data_description": {
           "sources": "Erscheinen im Medienbrowser unter RemArt. Quellen, die einen API-Key brauchen, werden erst angezeigt, wenn ein Key eingetragen ist.",
+          "photo_query": "Wonach Unsplash und Pixabay suchen, z. B. landscape, ocean oder abstract art.",
           "matte": "Passepartout für hochgeladene Bilder, z. B. none, modern_apricot oder shadowbox_polar.",
           "prompt_prefix": "Wird jeder Beschreibung vorangestellt, die an das Bildmodell geht."
         }
