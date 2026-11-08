@@ -12,6 +12,18 @@
           "host": "IP-Adresse oder Hostname des Fernsehers.",
           "port": "8002 (verschlüsselter Websocket) funktioniert bei allen Frame-Modellen seit 2018."
         }
+      },
+      "reconfigure": {
+        "title": "Adresse des Fernsehers ändern",
+        "description": "Gib die neue Adresse deines Frame TV ein. Falls der Fernseher fragt, ob die Verbindung erlaubt werden soll, bestätige das innerhalb von 30 Sekunden mit der Fernbedienung.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "IP-Adresse oder Hostname des Fernsehers.",
+          "port": "8002 (verschlüsselter Websocket) funktioniert bei allen Frame-Modellen seit 2018."
+        }
       }
     },
     "error": {
@@ -19,7 +31,9 @@
       "not_frame": "Dieser Fernseher unterstützt den Art Mode nicht."
     },
     "abort": {
-      "already_configured": "Dieser Fernseher ist bereits eingerichtet."
+      "already_configured": "Dieser Fernseher ist bereits eingerichtet.",
+      "wrong_device": "Unter dieser Adresse ist ein anderer Fernseher als der in diesem Eintrag eingerichtete.",
+      "reconfigure_successful": "Die Adresse des Fernsehers wurde aktualisiert."
     }
   },
   "options": {

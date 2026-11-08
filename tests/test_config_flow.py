@@ -107,3 +107,42 @@ async def test_options_flow(hass: HomeAssistant, setup_entry) -> None:
     sources = setup_entry.runtime_data.gallery.sources
     assert set(sources) == {"chicago", "rijks", "unsplash"}
     assert sources["unsplash"]._query == "ocean"
+
+
+async def test_reconfigure_updates_host(
+    hass: HomeAssistant, config_entry, mock_pair
+) -> None:
+    """A new address is stored and the entry reloads."""
+    with patch("custom_components.remart.async_setup_entry", return_value=True):
+        result = await config_entry.start_reconfigure_flow(hass)
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "reconfigure"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_HOST: "192.0.2.50", CONF_PORT: 8002}
+        )
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert config_entry.data[CONF_HOST] == "192.0.2.50"
+
+
+async def test_reconfigure_errors_and_wrong_device(
+    hass: HomeAssistant, config_entry, mock_pair
+) -> None:
+    """Unreachable TVs show an error; a different TV is refused."""
+    result = await config_entry.start_reconfigure_flow(hass)
+    mock_pair.side_effect = FrameError("timed out")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: "192.0.2.50", CONF_PORT: 8002}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+    mock_pair.side_effect = None
+    mock_pair.return_value = DeviceInfo(unique_id="uuid:other", model=None, name=None)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: "192.0.2.60", CONF_PORT: 8002}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_device"
+    assert config_entry.data[CONF_HOST] != "192.0.2.60"

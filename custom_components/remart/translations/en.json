@@ -12,6 +12,18 @@
           "host": "IP address or hostname of the TV.",
           "port": "8002 (secure websocket) works for all Frame models since 2018."
         }
+      },
+      "reconfigure": {
+        "title": "Change TV address",
+        "description": "Enter the new address of your Frame TV. If the TV asks to allow the connection, confirm it with the remote within 30 seconds.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the TV.",
+          "port": "8002 (secure websocket) works for all Frame models since 2018."
+        }
       }
     },
     "error": {
@@ -19,7 +31,9 @@
       "not_frame": "This TV does not support Art Mode."
     },
     "abort": {
-      "already_configured": "This TV is already configured."
+      "already_configured": "This TV is already configured.",
+      "wrong_device": "The address belongs to a different TV than the one configured in this entry.",
+      "reconfigure_successful": "The TV address was updated."
     }
   },
   "options": {
