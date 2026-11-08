@@ -191,6 +191,28 @@ async def test_play_artwork(
     assert state.attributes["entity_picture"].startswith("/api/media_player_proxy/")
 
 
+async def test_play_artwork_cropped(
+    hass: HomeAssistant, setup_entry, mock_show, aioclient_mock
+) -> None:
+    """With the crop option the image fills 16:9 instead of being letterboxed."""
+    hass.config_entries.async_update_entry(
+        setup_entry, options={**setup_entry.options, "fit": "crop"}
+    )
+    aioclient_mock.get("https://example.org/bedroom.jpg", content=png_bytes(900, 1200))
+    await hass.services.async_call(
+        MP_DOMAIN,
+        SERVICE_PLAY_MEDIA,
+        {
+            ATTR_ENTITY_ID: ENTITY_ID,
+            ATTR_MEDIA_CONTENT_ID: ARTWORK_ID,
+            ATTR_MEDIA_CONTENT_TYPE: "image/jpeg",
+        },
+        blocking=True,
+    )
+    jpeg = mock_show.await_args.args[1]
+    assert _image_size(jpeg) == (900, 506)
+
+
 async def test_play_url_and_errors(
     hass: HomeAssistant, setup_entry, mock_show, aioclient_mock
 ) -> None:

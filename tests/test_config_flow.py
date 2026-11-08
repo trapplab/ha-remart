@@ -96,6 +96,7 @@ async def test_options_flow(hass: HomeAssistant, setup_entry) -> None:
             "rijks_api_key": "secret",
             "unsplash_api_key": "access",
             "photo_query": "ocean",
+            "fit": "crop",
             CONF_MATTE: "none",
             CONF_PROMPT_PREFIX: "Oil painting: ",
         },
@@ -103,6 +104,7 @@ async def test_options_flow(hass: HomeAssistant, setup_entry) -> None:
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert setup_entry.options["rijks_api_key"] == "secret"
+    assert setup_entry.options["fit"] == "crop"
     # Pixabay has no key yet, so it is skipped.
     sources = setup_entry.runtime_data.gallery.sources
     assert set(sources) == {"chicago", "rijks", "unsplash"}

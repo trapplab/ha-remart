@@ -48,12 +48,14 @@
           "unsplash_api_key": "Unsplash access key",
           "pixabay_api_key": "Pixabay API key",
           "photo_query": "Photo search terms",
+          "fit": "Fit to the screen",
           "matte": "Matte",
           "prompt_prefix": "Image prompt prefix"
         },
         "data_description": {
           "sources": "Shown in the media browser under RemArt. Sources that need an API key are skipped until a key is entered.",
           "photo_query": "What Unsplash and Pixabay search for, e.g. landscape, ocean or abstract art.",
+          "fit": "How images that are not 16:9 are shown. Letterbox keeps the whole image and adds black bars; crop fills the screen without bars and cuts off the edges.",
           "matte": "Passe-partout for uploaded images, e.g. none, modern_apricot or shadowbox_polar.",
           "prompt_prefix": "Put in front of every description sent to the image model."
         }
@@ -73,6 +75,14 @@
           "name": "AI Task entity",
           "description": "Entity that generates the image. Defaults to the preferred image entity in the AI Task settings."
         }
+      }
+    }
+  },
+  "selector": {
+    "fit": {
+      "options": {
+        "letterbox": "Letterbox (whole image, black bars)",
+        "crop": "Crop (fill the screen, no bars)"
       }
     }
   }

@@ -1,5 +1,6 @@
 """HTTP and websocket endpoints for the Frame card and the media browser."""
 
+import hashlib
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,6 @@ from homeassistant.components.http import (
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.loader import async_get_integration
 
 from .const import DOMAIN
 from .frame import FrameError
@@ -41,8 +41,14 @@ async def async_setup_api(hass: HomeAssistant) -> None:
         [StaticPathConfig(CARD_URL, str(CARD_PATH), cache_headers=True)]
     )
     if "frontend" in hass.config.components:
-        integration = await async_get_integration(hass, DOMAIN)
-        frontend.add_extra_js_url(hass, f"{CARD_URL}?v={integration.version}")
+        # Hash the file so browsers and the companion apps pick up every change,
+        # not only version bumps.
+        digest = await hass.async_add_executor_job(_card_digest)
+        frontend.add_extra_js_url(hass, f"{CARD_URL}?v={digest}")
+
+
+def _card_digest() -> str:
+    return hashlib.sha256(CARD_PATH.read_bytes()).hexdigest()[:12]
 
 
 def _loaded_entry(hass: HomeAssistant, entry_id: str) -> RemArtConfigEntry | None:

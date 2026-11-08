@@ -92,15 +92,36 @@ const STYLE = `
   .tile button.delete ha-icon { --mdc-icon-size: 18px; }
   .tile:hover button.delete, .tile button.delete:focus-visible { opacity: 1; }
   .tile button.delete:hover { background: var(--error-color); }
-  @media (hover: none) { .tile button.delete { opacity: 1; } }
+  .tile { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+  .tile img { pointer-events: none; }
+  /* Touch screens: long-press a tile to reveal its trash button. */
+  @media (hover: none) {
+    .tile button.delete { opacity: 0; pointer-events: none; }
+    .tile.armed button.delete { opacity: 1; pointer-events: auto; padding: 6px; }
+    .tile.armed button.delete ha-icon { --mdc-icon-size: 24px; }
+  }
+  .tile.armed { outline-color: var(--error-color); }
   .tile.busy { opacity: .5; pointer-events: none; }
   .hint { color: var(--secondary-text-color); font-size: .9em; margin-top: 8px; }
   input[type=file] { display: none; }
 `;
 
+const LONG_PRESS_MS = 500;
+const CARD_BUILD = (() => {
+  const entry = performance
+    .getEntriesByType("resource")
+    .find((e) => e.name.includes("remart-frame-card.js"));
+  return entry ? new URL(entry.name).searchParams.get("v") || "?" : "?";
+})();
+
+// TEMP diagnostics: set "debug: true" in the card config.
+const DEBUG_KEY = "remart-card-debug";
+let debugInstances = 0;
+
 class RemArtFrameCard extends HTMLElement {
   constructor() {
     super();
+    this._instance = ++debugInstances + "-" + Math.random().toString(36).slice(2, 6);
     this._thumbs = new Map();
     this._items = null;
     this._busy = false;
@@ -122,6 +143,7 @@ class RemArtFrameCard extends HTMLElement {
     }
     const changed = this._config && this._config.entity !== config.entity;
     this._config = config;
+    this._renderDebug();
     if (changed) {
       this._items = null;
       if (this._hass) this._load();
@@ -132,7 +154,10 @@ class RemArtFrameCard extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
-    if (!this.shadowRoot) this._build();
+    if (!this.shadowRoot) {
+      this._build();
+      this._debug(`built, card ${CARD_BUILD}`);
+    }
     this._renderHeader();
     // Reload when the Frame shows something new, e.g. from the media browser.
     const state = this._config && hass.states[this._config.entity];
@@ -176,13 +201,32 @@ class RemArtFrameCard extends HTMLElement {
     const card = root.querySelector("ha-card");
     const drop = root.querySelector(".drop");
     const input = root.querySelector("input");
+    // Android WebViews (e.g. the companion app) drop multi-selections from the
+    // photo picker and report "cancel", so pick one image at a time there.
+    input.multiple = !/Android/i.test(navigator.userAgent);
 
-    drop.addEventListener("click", () => input.click());
+    drop.addEventListener("click", () => {
+      this._debug(`drop click -> input.click() multiple=${input.multiple}`);
+      input.click();
+    });
+    input.addEventListener("click", () => this._debug("input click"));
+    input.addEventListener("cancel", () => this._debug("input cancel"));
+    input.addEventListener("input", () =>
+      this._debug(`input event: ${input.files ? input.files.length : "no"} files`)
+    );
+    document.addEventListener("visibilitychange", () =>
+      this._debug(`visibility ${document.visibilityState}`)
+    );
     drop.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter" || ev.key === " ") input.click();
     });
     input.addEventListener("change", () => {
-      this._upload([...input.files]);
+      const picked = [...(input.files || [])];
+      this._debug(
+        `change: ${picked.length} files ` +
+          picked.map((f) => `${f.name} type=${f.type || "-"} size=${f.size}`).join(", ")
+      );
+      this._upload(picked);
       input.value = "";
     });
     let depth = 0;
@@ -206,6 +250,40 @@ class RemArtFrameCard extends HTMLElement {
       this._handleDrop(ev.dataTransfer);
     });
     root.querySelector(".refresh").addEventListener("click", () => this._load());
+  }
+
+  _debug(message) {
+    if (!this._config || !this._config.debug) return;
+    const time = new Date().toLocaleTimeString();
+    const lines = JSON.parse(localStorage.getItem(DEBUG_KEY) || "[]");
+    lines.push(`${time} [${this._instance}${this.isConnected ? "" : " detached"}] ${message}`);
+    localStorage.setItem(DEBUG_KEY, JSON.stringify(lines.slice(-30)));
+    this._renderDebug();
+  }
+
+  _renderDebug() {
+    const root = this.shadowRoot;
+    if (!root || !this._config || !this._config.debug) return;
+    let pre = root.querySelector("pre.debug");
+    if (!pre) {
+      pre = document.createElement("pre");
+      pre.className = "debug";
+      pre.style.cssText = "font-size:.7em;white-space:pre-wrap;max-height:240px;overflow:auto";
+      pre.addEventListener("dblclick", () => {
+        localStorage.removeItem(DEBUG_KEY);
+        pre.textContent = "";
+      });
+      root.querySelector("ha-card").append(pre);
+    }
+    pre.textContent = JSON.parse(localStorage.getItem(DEBUG_KEY) || "[]").join("\n");
+  }
+
+  connectedCallback() {
+    this._debug("connected");
+  }
+
+  disconnectedCallback() {
+    this._debug("disconnected");
   }
 
   _renderHeader() {
@@ -262,6 +340,7 @@ class RemArtFrameCard extends HTMLElement {
   }
 
   async _upload(files) {
+    this._debug(`upload: ${files.length} files, busy=${this._busy}`);
     if (this._busy || !files.length) return;
     this._busy = true;
     let failed = false;
@@ -279,6 +358,7 @@ class RemArtFrameCard extends HTMLElement {
           `/api/remart/upload/${encodeURIComponent(this._config.entity)}`,
           { method: "POST", body }
         );
+        this._debug(`upload response ${resp.status}`);
         if (!resp.ok) {
           let message = `${resp.status} ${resp.statusText}`;
           try {
@@ -292,6 +372,7 @@ class RemArtFrameCard extends HTMLElement {
       }
       if (!failed) this._status(this._t("done"));
     } catch (err) {
+      this._debug(`upload error: ${err.message || err}`);
       this._status(err.message || String(err), true);
     } finally {
       this._busy = false;
@@ -381,7 +462,16 @@ class RemArtFrameCard extends HTMLElement {
           this._delete(item, tile, label || item.content_id);
         });
         tile.append(del);
-        tile.addEventListener("click", () => this._select(item, tile));
+        this._addLongPress(tile);
+        tile.addEventListener("click", (ev) => {
+          if (tile._longPressed) {
+            tile._longPressed = false;
+            return;
+          }
+          // A tap while some tile shows its trash button only dismisses it.
+          if (this._disarm()) return;
+          this._select(item, tile);
+        });
         return tile;
       })
     );
@@ -401,6 +491,44 @@ class RemArtFrameCard extends HTMLElement {
       tile.classList.remove("busy");
       this._status(err.message || String(err), true);
     }
+  }
+
+  _addLongPress(tile) {
+    let timer = null;
+    let start = null;
+    const cancel = () => {
+      clearTimeout(timer);
+      timer = null;
+    };
+    tile.addEventListener("pointerdown", (ev) => {
+      tile._longPressed = false;
+      if (ev.pointerType === "mouse") return;
+      start = [ev.clientX, ev.clientY];
+      cancel();
+      timer = setTimeout(() => {
+        timer = null;
+        this._disarm();
+        tile.classList.add("armed");
+        tile._longPressed = true;
+        if (navigator.vibrate) navigator.vibrate(20);
+      }, LONG_PRESS_MS);
+    });
+    tile.addEventListener("pointermove", (ev) => {
+      if (timer && start && Math.hypot(ev.clientX - start[0], ev.clientY - start[1]) > 10) {
+        cancel();
+      }
+    });
+    tile.addEventListener("pointerup", cancel);
+    tile.addEventListener("pointercancel", cancel);
+    tile.addEventListener("pointerleave", cancel);
+    // Android opens a context menu on long-press otherwise.
+    tile.addEventListener("contextmenu", (ev) => ev.preventDefault());
+  }
+
+  _disarm() {
+    const armed = this.shadowRoot.querySelectorAll(".tile.armed");
+    armed.forEach((tile) => tile.classList.remove("armed"));
+    return armed.length > 0;
   }
 
   async _delete(item, tile, name) {

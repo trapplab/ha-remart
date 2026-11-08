@@ -7,7 +7,7 @@ Show art on a Samsung Frame TV from Home Assistant:
 - **On the Frame**: see the images stored on the TV, with the one currently shown first, and switch between them without uploading again.
 - **AI art by voice**: tell your voice assistant what you want to see. Home Assistant generates the image and shows it on the Frame.
 
-Images are letterboxed to 16:9 on black before upload, so the Frame never stretches them.
+Images are brought to 16:9 before upload, so the Frame never stretches them: letterboxed on black by default, or cropped to fill the screen.
 
 ## Requirements
 
@@ -33,7 +33,7 @@ Open *Media* in the sidebar, pick the Frame as the target player (bottom right),
 | Rijksmuseum, Europeana, Smithsonian (api.data.gov) | needed, enter it in the options |
 | Unsplash, Pixabay (photos) | needed, free at [unsplash.com/developers](https://unsplash.com/developers) and [pixabay.com/api/docs](https://pixabay.com/api/docs/) |
 
-Choose sources, API keys, the photo search terms for Unsplash and Pixabay (default `landscape`), the matte (passe-partout) and the image prompt prefix under *Configure* on the integration.
+Choose sources, API keys, the photo search terms for Unsplash and Pixabay (default `landscape`), how images that are not 16:9 are fitted (letterbox with black bars, the default, or crop to fill the screen), the matte (passe-partout) and the image prompt prefix under *Configure* on the integration.
 
 In the media browser, the search field in the Unsplash and Pixabay folders asks the library itself for new photos instead of filtering the listed ones (needs a Home Assistant version whose media browser supports search).
 

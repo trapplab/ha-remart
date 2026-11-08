@@ -9,10 +9,16 @@ CONF_SOURCES: Final = "sources"
 CONF_MATTE: Final = "matte"
 CONF_PROMPT_PREFIX: Final = "prompt_prefix"
 CONF_PHOTO_QUERY: Final = "photo_query"
+CONF_FIT: Final = "fit"
 
 DEFAULT_PORT: Final = 8002
 DEFAULT_MATTE: Final = "none"
 DEFAULT_PHOTO_QUERY: Final = "landscape"
+
+# How images that are not 16:9 are brought to the panel's shape.
+FIT_LETTERBOX: Final = "letterbox"
+FIT_CROP: Final = "crop"
+DEFAULT_FIT: Final = FIT_LETTERBOX
 DEFAULT_PROMPT_PREFIX: Final = (
     "A fine-art painting in 16:9 landscape format for a framed art TV. "
     "No text, no lettering, no borders, no frame. Subject: "

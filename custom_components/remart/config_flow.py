@@ -23,16 +23,20 @@ from homeassistant.helpers.selector import (
 
 from . import api_key_option
 from .const import (
+    CONF_FIT,
     CONF_MATTE,
     CONF_PHOTO_QUERY,
     CONF_PROMPT_PREFIX,
     CONF_SOURCES,
     CONF_TOKEN,
+    DEFAULT_FIT,
     DEFAULT_MATTE,
     DEFAULT_PHOTO_QUERY,
     DEFAULT_PORT,
     DEFAULT_PROMPT_PREFIX,
     DOMAIN,
+    FIT_CROP,
+    FIT_LETTERBOX,
 )
 from .frame import DeviceInfo, FrameClient, FrameError, NotAFrameError
 from .models import RemArtConfigEntry
@@ -134,7 +138,7 @@ class RemArtConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class RemArtOptionsFlow(OptionsFlowWithReload):
-    """Choose sources, API keys, matte and prompt."""
+    """Choose sources, API keys, image fit, matte and prompt."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -160,6 +164,12 @@ class RemArtOptionsFlow(OptionsFlowWithReload):
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 )
         schema[probatio.Optional(CONF_PHOTO_QUERY)] = str
+        schema[probatio.Required(CONF_FIT)] = SelectSelector(
+            SelectSelectorConfig(
+                options=[FIT_LETTERBOX, FIT_CROP],
+                translation_key=CONF_FIT,
+            )
+        )
         schema[probatio.Required(CONF_MATTE)] = str
         schema[probatio.Required(CONF_PROMPT_PREFIX)] = TextSelector(
             TextSelectorConfig(multiline=True)
@@ -167,6 +177,7 @@ class RemArtOptionsFlow(OptionsFlowWithReload):
 
         current = {
             CONF_SOURCES: KEYLESS_SOURCES,
+            CONF_FIT: DEFAULT_FIT,
             CONF_MATTE: DEFAULT_MATTE,
             CONF_PHOTO_QUERY: DEFAULT_PHOTO_QUERY,
             CONF_PROMPT_PREFIX: DEFAULT_PROMPT_PREFIX,

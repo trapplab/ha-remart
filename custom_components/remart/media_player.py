@@ -22,10 +22,13 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
+    CONF_FIT,
     CONF_PROMPT_PREFIX,
     CONF_TOKEN,
+    DEFAULT_FIT,
     DEFAULT_PROMPT_PREFIX,
     DOMAIN,
+    FIT_CROP,
     GENERATE_TIMEOUT,
 )
 from .frame import FrameError
@@ -148,7 +151,8 @@ class FrameArtPlayer(MediaPlayerEntity):
     ) -> str:
         """Fit and upload image bytes, then show them. Returns the content id."""
         try:
-            jpeg, preview = await self.hass.async_add_executor_job(_prepare, data)
+            crop = self._entry.options.get(CONF_FIT, DEFAULT_FIT) == FIT_CROP
+            jpeg, preview = await self.hass.async_add_executor_job(_prepare, data, crop)
         except (
             UnidentifiedImageError,
             Image.DecompressionBombError,
@@ -283,6 +287,6 @@ class FrameArtPlayer(MediaPlayerEntity):
             )
 
 
-def _prepare(data: bytes) -> tuple[bytes, bytes]:
-    jpeg = fit_to_frame(data)
+def _prepare(data: bytes, crop: bool) -> tuple[bytes, bytes]:
+    jpeg = fit_to_frame(data, crop=crop)
     return jpeg, make_preview(jpeg)
