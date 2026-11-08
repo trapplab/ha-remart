@@ -176,3 +176,28 @@ async def test_thumbnails_unreachable(hass: HomeAssistant, art) -> None:
     art.open.side_effect = OSError("No route to host")
     client = FrameClient("h", 8002, None, "none")
     assert await client.async_thumbnail(hass, "MY_F0001") is None
+
+
+async def test_delete_stored(hass: HomeAssistant, art) -> None:
+    """Deleting removes the image on the TV and its cached thumbnail."""
+    client = FrameClient("h", 8002, None, "none")
+    client.cache_thumbnail("MY_F0001", b"thumb")
+    art.delete.return_value = True
+    await client.async_delete(hass, "MY_F0001")
+    art.delete.assert_called_once_with("MY_F0001")
+    art.close.assert_called_once()
+    assert client.cached_thumbnail("MY_F0001") is None
+
+
+async def test_delete_failures(hass: HomeAssistant, art) -> None:
+    """A refused or failed delete raises FrameError."""
+    client = FrameClient("h", 8002, None, "none")
+    art.delete.return_value = False
+    with pytest.raises(FrameError, match="did not delete"):
+        await client.async_delete(hass, "MY_F0001")
+    art.delete.side_effect = ConnectionFailure("gone")
+    with pytest.raises(FrameError, match="failed"):
+        await client.async_delete(hass, "MY_F0001")
+    art.delete.side_effect = ResponseError("nope")
+    with pytest.raises(FrameError, match="did not delete"):
+        await client.async_delete(hass, "MY_F0001")

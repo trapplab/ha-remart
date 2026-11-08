@@ -57,6 +57,11 @@ class Catalog:
         self._items[content_id] = CatalogItem(title=title, artist=artist)
         self._save()
 
+    def forget(self, content_id: str) -> None:
+        """Forget an image deleted from the TV."""
+        if self._items.pop(content_id, None) is not None:
+            self._save()
+
     def prune(self, content_ids: set[str]) -> None:
         """Forget images that were deleted on the TV."""
         gone = self._items.keys() - content_ids

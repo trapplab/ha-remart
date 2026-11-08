@@ -2,13 +2,21 @@
 
 Identifiers: "" (root) → "<source>" → "<source>/<page>" → "<source>/<page>/<artwork id>".
 Artwork ids are URL-quoted because some (Europeana) contain slashes.
+Searches in a photo library: "<source>@<query>/<page>/<artwork id>", query URL-quoted.
 Images on a Frame: "on_frame/<entry id>" → "on_frame/<entry id>/<content id>".
 """
 
 from dataclasses import dataclass
 from urllib.parse import quote, unquote
 
-from homeassistant.components.media_player import BrowseError, MediaClass
+import aiohttp
+
+from homeassistant.components.media_player import (
+    BrowseError,
+    MediaClass,
+    SearchMedia,
+    SearchMediaQuery,
+)
 from homeassistant.components.media_source import (
     BrowseMediaSource,
     MediaSource,
@@ -37,24 +45,41 @@ class Identifier:
     source_id: str | None = None
     page: int = 1
     artwork_id: str | None = None
+    query: str | None = None
 
 
 def parse_identifier(identifier: str) -> Identifier:
-    """Split an identifier into source, page and artwork."""
+    """Split an identifier into source, page, artwork and search query."""
     if not identifier:
         return Identifier()
-    source_id, _, rest = identifier.partition("/")
+    source_part, _, rest = identifier.partition("/")
+    source_id, _, query = source_part.partition("@")
     page_str, _, artwork = rest.partition("/")
     try:
         page = int(page_str) if page_str else 1
     except ValueError as err:
         raise BrowseError(f"Invalid page in {identifier}") from err
-    return Identifier(source_id, page, unquote(artwork) if artwork else None)
+    return Identifier(
+        source_id,
+        page,
+        unquote(artwork) if artwork else None,
+        unquote(query).strip() or None,
+    )
 
 
-def artwork_identifier(artwork: Artwork, page: int) -> str:
+def page_identifier(source_id: str, page: int, query: str | None = None) -> str:
+    """Build the identifier of a page of a source or of a search in it."""
+    if query:
+        return f"{source_id}@{quote(query, safe='')}/{page}"
+    return f"{source_id}/{page}"
+
+
+def artwork_identifier(artwork: Artwork, page: int, query: str | None = None) -> str:
     """Build the identifier of an artwork on a page."""
-    return f"{artwork.source_id}/{page}/{quote(artwork.id, safe='')}"
+    return (
+        f"{page_identifier(artwork.source_id, page, query)}/"
+        f"{quote(artwork.id, safe='')}"
+    )
 
 
 def frame_identifier(entry_id: str, content_id: str | None = None) -> str:
@@ -129,7 +154,7 @@ class RemArtMediaSource(MediaSource):
         if parsed.source_id is None or parsed.artwork_id is None:
             raise Unresolvable(f"Not an artwork: {item.identifier}")
         artwork = await self._gallery().async_get_artwork(
-            parsed.source_id, parsed.page, parsed.artwork_id
+            parsed.source_id, parsed.page, parsed.artwork_id, parsed.query
         )
         if artwork is None:
             raise Unresolvable(f"Artwork not found: {item.identifier}")
@@ -156,7 +181,9 @@ class RemArtMediaSource(MediaSource):
                     for entry in entries
                 ]
                 + [
-                    self._directory(source_id, source.name)
+                    self._directory(
+                        source_id, source.name, can_search=source.searchable
+                    )
                     for source_id, source in gallery.sources.items()
                 ],
             )
@@ -165,28 +192,78 @@ class RemArtMediaSource(MediaSource):
         if source is None:
             raise BrowseError(f"Unknown source: {parsed.source_id}")
 
-        artworks = await gallery.async_get_page(parsed.source_id, parsed.page)
+        if parsed.query and not source.searchable:
+            raise BrowseError(f"{source.name} cannot be searched")
+
+        artworks = await gallery.async_get_page(
+            parsed.source_id, parsed.page, parsed.query
+        )
         if parsed.artwork_id is not None:
             for artwork in artworks:
                 if artwork.id == parsed.artwork_id:
-                    return self._artwork(artwork, parsed.page)
+                    return self._artwork(artwork, parsed.page, parsed.query)
             raise BrowseError(f"Artwork not found: {item.identifier}")
 
-        children = [self._artwork(artwork, parsed.page) for artwork in artworks]
+        title = source.name
+        if parsed.query:
+            title = f"{title}: {parsed.query}"
+        if parsed.page > 1:
+            title = f"{title} – {self._page_label()} {parsed.page}"
+        return self._directory(
+            page_identifier(parsed.source_id, parsed.page, parsed.query),
+            title,
+            self._page_children(artworks, parsed.source_id, parsed.page, parsed.query),
+            can_search=source.searchable,
+        )
+
+    async def async_search_media(
+        self, item: MediaSourceItem, query: SearchMediaQuery
+    ) -> SearchMedia:
+        """Search a photo library on its website, not just the listed photos."""
+        parsed = parse_identifier(item.identifier)
+        if parsed.source_id is None or parse_frame_identifier(item.identifier):
+            raise NotImplementedError
+        gallery = self._gallery()
+        source = gallery.sources.get(parsed.source_id)
+        if source is None or not source.searchable:
+            raise NotImplementedError
+        search = query.search_query.strip()
+        if not search or (
+            query.media_filter_classes
+            and MediaClass.IMAGE not in query.media_filter_classes
+        ):
+            return SearchMedia(result=[])
+        try:
+            artworks = await gallery.async_get_page(parsed.source_id, 1, search)
+        except aiohttp.ClientResponseError as err:
+            raise BrowseError(
+                f"{source.name} search failed: {err.status} {err.message}"
+            ) from err
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise BrowseError(f"{source.name} is not reachable: {err}") from err
+        return SearchMedia(
+            result=self._page_children(artworks, parsed.source_id, 1, search)
+        )
+
+    def _page_children(
+        self,
+        artworks: list[Artwork],
+        source_id: str,
+        page: int,
+        query: str | None,
+    ) -> list[BrowseMediaSource]:
+        children = [self._artwork(artwork, page, query) for artwork in artworks]
         # A short page is the last one; sources may drop items without an image,
         # so any non-empty page may still be followed by another.
         if artworks:
-            next_page = parsed.page + 1
+            next_page = page + 1
             children.append(
                 self._directory(
-                    f"{parsed.source_id}/{next_page}",
+                    page_identifier(source_id, next_page, query),
                     f"{self._page_label()} {next_page} →",
                 )
             )
-        title = source.name
-        if parsed.page > 1:
-            title = f"{source.name} – {self._page_label()} {parsed.page}"
-        return self._directory(f"{parsed.source_id}/{parsed.page}", title, children)
+        return children
 
     async def _async_browse_frame(
         self, entry_id: str, content_id: str | None
@@ -242,6 +319,8 @@ class RemArtMediaSource(MediaSource):
         identifier: str,
         title: str,
         children: list[BrowseMediaSource] | None = None,
+        *,
+        can_search: bool = False,
     ) -> BrowseMediaSource:
         return BrowseMediaSource(
             domain=DOMAIN,
@@ -253,15 +332,19 @@ class RemArtMediaSource(MediaSource):
             can_expand=True,
             children=children,
             children_media_class=MediaClass.IMAGE if children else None,
+            can_search=can_search,
+            search_media_classes=[MediaClass.IMAGE] if can_search else None,
         )
 
-    def _artwork(self, artwork: Artwork, page: int) -> BrowseMediaSource:
+    def _artwork(
+        self, artwork: Artwork, page: int, query: str | None = None
+    ) -> BrowseMediaSource:
         title = (
             f"{artwork.title} – {artwork.artist}" if artwork.artist else artwork.title
         )
         return BrowseMediaSource(
             domain=DOMAIN,
-            identifier=artwork_identifier(artwork, page),
+            identifier=artwork_identifier(artwork, page, query),
             media_class=MediaClass.IMAGE,
             media_content_type=IMAGE_MIME,
             title=title,

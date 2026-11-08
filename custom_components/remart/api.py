@@ -36,6 +36,7 @@ async def async_setup_api(hass: HomeAssistant) -> None:
     hass.http.register_view(ThumbnailView())
     hass.http.register_view(UploadView())
     websocket_api.async_register_command(hass, websocket_frame_art)
+    websocket_api.async_register_command(hass, websocket_delete_art)
     await hass.http.async_register_static_paths(
         [StaticPathConfig(CARD_URL, str(CARD_PATH), cache_headers=True)]
     )
@@ -192,3 +193,33 @@ async def websocket_frame_art(
             ],
         },
     )
+
+
+@websocket_api.websocket_command(
+    {
+        probatio.Required("type"): f"{DOMAIN}/delete_art",
+        probatio.Required("entity_id"): str,
+        probatio.Required("content_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_delete_art(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Delete an image stored on a Frame."""
+    entry = _entry_of_entity(hass, msg["entity_id"])
+    if entry is None:
+        connection.send_error(
+            msg["id"], websocket_api.ERR_NOT_FOUND, "Not a RemArt Frame"
+        )
+        return
+    data = entry.runtime_data
+    try:
+        await data.frame.async_delete(hass, msg["content_id"])
+    except FrameError as err:
+        connection.send_error(msg["id"], "frame_unavailable", str(err))
+        return
+    data.catalog.forget(msg["content_id"])
+    connection.send_result(msg["id"])

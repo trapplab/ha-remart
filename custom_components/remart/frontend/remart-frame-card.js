@@ -12,6 +12,10 @@ const STRINGS = {
     refresh: "Refresh",
     notImage: "{name} is not an image",
     noEntity: "Set entity to a RemArt Frame media player",
+    delete: "Delete from the Frame",
+    confirmDelete: "Delete \"{name}\" from the Frame? This cannot be undone.",
+    deleting: "Deleting …",
+    deleted: "Deleted from the Frame",
   },
   de: {
     drop: "Bilder hierher ziehen oder klicken zum Auswählen",
@@ -26,6 +30,10 @@ const STRINGS = {
     refresh: "Aktualisieren",
     notImage: "{name} ist kein Bild",
     noEntity: "entity muss ein RemArt-Frame-Mediaplayer sein",
+    delete: "Vom Frame löschen",
+    confirmDelete: "„{name}“ vom Frame löschen? Das lässt sich nicht rückgängig machen.",
+    deleting: "Lösche …",
+    deleted: "Vom Frame gelöscht",
   },
 };
 
@@ -76,6 +84,15 @@ const STYLE = `
     font-size: .7em; color: var(--text-primary-color, #fff);
     background: var(--primary-color);
   }
+  .tile button.delete {
+    position: absolute; top: 4px; left: 4px; padding: 2px; border: none;
+    border-radius: 50%; cursor: pointer; line-height: 0; opacity: 0;
+    color: #fff; background: rgba(0, 0, 0, .55); transition: opacity .15s;
+  }
+  .tile button.delete ha-icon { --mdc-icon-size: 18px; }
+  .tile:hover button.delete, .tile button.delete:focus-visible { opacity: 1; }
+  .tile button.delete:hover { background: var(--error-color); }
+  @media (hover: none) { .tile button.delete { opacity: 1; } }
   .tile.busy { opacity: .5; pointer-events: none; }
   .hint { color: var(--secondary-text-color); font-size: .9em; margin-top: 8px; }
   input[type=file] { display: none; }
@@ -352,6 +369,18 @@ class RemArtFrameCard extends HTMLElement {
           badge.textContent = this._t("shown");
           tile.append(badge);
         }
+        const del = document.createElement("button");
+        del.className = "delete";
+        del.title = this._t("delete");
+        del.setAttribute("aria-label", this._t("delete"));
+        const icon = document.createElement("ha-icon");
+        icon.icon = "mdi:delete-outline";
+        del.append(icon);
+        del.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          this._delete(item, tile, label || item.content_id);
+        });
+        tile.append(del);
         tile.addEventListener("click", () => this._select(item, tile));
         return tile;
       })
@@ -368,6 +397,31 @@ class RemArtFrameCard extends HTMLElement {
       this._items.sort((a, b) => b.current - a.current);
       this._renderGrid();
       this._status(this._t("done"));
+    } catch (err) {
+      tile.classList.remove("busy");
+      this._status(err.message || String(err), true);
+    }
+  }
+
+  async _delete(item, tile, name) {
+    if (!window.confirm(this._t("confirmDelete", { name }))) return;
+    tile.classList.add("busy");
+    this._status(this._t("deleting"));
+    try {
+      await this._hass.callWS({
+        type: "remart/delete_art",
+        entity_id: this._config.entity,
+        content_id: item.content_id,
+      });
+      const src = await this._thumbs.get(item.content_id);
+      if (src) URL.revokeObjectURL(src);
+      this._thumbs.delete(item.content_id);
+      this._items = this._items.filter((other) => other !== item);
+      this.shadowRoot.querySelector(".hint").textContent = this._items.length
+        ? ""
+        : this._t("empty");
+      this._renderGrid();
+      this._status(this._t("deleted"));
     } catch (err) {
       tile.classList.remove("busy");
       this._status(err.message || String(err), true);
@@ -398,7 +452,7 @@ if (!customElements.get("remart-frame-card")) {
     type: "remart-frame-card",
     name: "RemArt Frame",
     description:
-      "Drop images to show them on the Frame and pick from the images stored on it.",
+      "Drop images to show them on the Frame, pick from or delete the images stored on it.",
     preview: false,
   });
 }

@@ -258,7 +258,7 @@ class FrameArtPlayer(MediaPlayerEntity):
         if parsed.artwork_id is None:
             return None
         return await self._gallery.async_get_artwork(
-            parsed.source_id, parsed.page, parsed.artwork_id
+            parsed.source_id, parsed.page, parsed.artwork_id, parsed.query
         )
 
     async def _async_download(self, url: str) -> bytes:

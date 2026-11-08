@@ -35,6 +35,8 @@ Open *Media* in the sidebar, pick the Frame as the target player (bottom right),
 
 Choose sources, API keys, the photo search terms for Unsplash and Pixabay (default `landscape`), the matte (passe-partout) and the image prompt prefix under *Configure* on the integration.
 
+In the media browser, the search field in the Unsplash and Pixabay folders asks the library itself for new photos instead of filtering the listed ones (needs a Home Assistant version whose media browser supports search).
+
 Unsplash and Pixabay photos are licensed by their photographers under the Unsplash and Pixabay licenses; the photographer is shown as the artist.
 
 ## On the Frame
@@ -51,7 +53,7 @@ entity: media_player.living_room_frame
 # title: Living room  # optional
 ```
 
-Drop one or more images onto the card, or click it to choose files, and each image is shown on the Frame. Images dragged from another browser tab work too. Below the drop zone the card shows the pictures stored on the Frame; click one to show it.
+Drop one or more images onto the card, or click it to choose files, and each image is shown on the Frame. Images dragged from another browser tab work too. Below the drop zone the card shows the pictures stored on the Frame; click one to show it, or use its trash icon to delete it from the TV after a confirmation.
 
 The Frame entity also takes any image URL or media source item, e.g. in an automation:
 

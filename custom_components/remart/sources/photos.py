@@ -25,6 +25,10 @@ class PixabaySource(ArtSource):
 
     @override
     async def fetch_page(self, page: int, page_size: int) -> list[Artwork]:
+        return await self.search_page(self._query or DEFAULT_QUERY, page, page_size)
+
+    @override
+    async def search_page(self, query: str, page: int, page_size: int) -> list[Artwork]:
         if not self._api_key:
             return []
         per_page = max(3, min(page_size, 200))
@@ -34,7 +38,7 @@ class PixabaySource(ArtSource):
             self._api,
             {
                 "key": self._api_key,
-                "q": (self._query or DEFAULT_QUERY)[:100],
+                "q": query[:100],
                 "image_type": "photo",
                 "orientation": "horizontal",
                 "safesearch": "true",
@@ -81,12 +85,16 @@ class UnsplashSource(ArtSource):
 
     @override
     async def fetch_page(self, page: int, page_size: int) -> list[Artwork]:
+        return await self.search_page(self._query or DEFAULT_QUERY, page, page_size)
+
+    @override
+    async def search_page(self, query: str, page: int, page_size: int) -> list[Artwork]:
         if not self._api_key:
             return []
         body = await self._get_json(
             f"{self._api}/search/photos",
             {
-                "query": self._query or DEFAULT_QUERY,
+                "query": query,
                 "orientation": "landscape",
                 "content_filter": "high",
                 "per_page": min(page_size, 30),

@@ -72,6 +72,100 @@ async def test_artwork_ids_with_slashes(
     assert play.url == "https://example.org/bedroom.jpg"
 
 
+async def test_search_photos(
+    hass: HomeAssistant, aioclient_mock, config_entry, mock_show, mock_page
+) -> None:
+    """A search asks Pixabay again and its hits resolve and page like a browse."""
+    from dataclasses import replace
+
+    import aiohttp
+
+    from homeassistant.components.media_player import (
+        BrowseError,
+        MediaClass,
+        SearchMediaQuery,
+    )
+    from homeassistant.setup import async_setup_component
+
+    from .conftest import ARTWORK
+
+    hass.config_entries.async_update_entry(
+        config_entry,
+        options={"sources": ["chicago", "pixabay"], "pixabay_api_key": "key"},
+    )
+    assert await async_setup_component(hass, "media_source", {})
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    hit = replace(ARTWORK, id="7", source_id="pixabay", title="Fog")
+    with patch(
+        "custom_components.remart.sources.photos.PixabaySource.search_page",
+        return_value=[hit],
+    ) as search:
+        pixabay = await media_source.async_browse_media(
+            hass, "media-source://remart/pixabay"
+        )
+        assert pixabay.can_search
+        assert search.call_args.args == ("landscape", 1, 20)
+
+        found = await media_source.async_search_media(
+            hass,
+            "media-source://remart/pixabay",
+            SearchMediaQuery(search_query=" foggy / forest "),
+        )
+        art, nxt = found.result
+        assert search.call_args.args == ("foggy / forest", 1, 20)
+        assert art.media_content_id == (
+            "media-source://remart/pixabay@foggy%20%2F%20forest/1/7"
+        )
+        assert nxt.media_content_id == (
+            "media-source://remart/pixabay@foggy%20%2F%20forest/2"
+        )
+
+        page = await media_source.async_browse_media(hass, nxt.media_content_id)
+        assert page.title == "Pixabay: foggy / forest – Page 2"
+        assert page.can_search
+        assert search.call_args.args == ("foggy / forest", 2, 20)
+
+        play = await media_source.async_resolve_media(hass, art.media_content_id, None)
+        assert play.url == "https://example.org/bedroom.jpg"
+        assert search.call_count == 3
+
+    page = await media_source.async_browse_media(
+        hass, "media-source://remart/pixabay@%20/1"
+    )
+    assert page.media_content_id == "media-source://remart/pixabay/1"
+
+    videos = await media_source.async_search_media(
+        hass,
+        "media-source://remart/pixabay",
+        SearchMediaQuery(search_query="fog", media_filter_classes=[MediaClass.VIDEO]),
+    )
+    assert videos.result == []
+
+    with (
+        patch(
+            "custom_components.remart.sources.photos.PixabaySource.search_page",
+            side_effect=aiohttp.ClientResponseError(
+                None, (), status=429, message="Too Many Requests"
+            ),
+        ),
+        pytest.raises(BrowseError, match="429 Too Many Requests"),
+    ):
+        await media_source.async_search_media(
+            hass, "media-source://remart/pixabay", SearchMediaQuery(search_query="sea")
+        )
+
+    chicago = await media_source.async_browse_media(
+        hass, "media-source://remart/chicago"
+    )
+    assert not chicago.can_search
+    with pytest.raises(BrowseError):
+        await media_source.async_search_media(
+            hass, "media-source://remart/chicago", SearchMediaQuery(search_query="x")
+        )
+
+
 async def test_play_artwork(
     hass: HomeAssistant, setup_entry, mock_show, aioclient_mock
 ) -> None:

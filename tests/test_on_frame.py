@@ -247,6 +247,53 @@ async def test_websocket_frame_art(
     assert msg["error"] == {"code": "frame_unavailable", "message": "TV is off"}
 
 
+async def test_websocket_delete_art(
+    hass: HomeAssistant, setup_entry, hass_ws_client
+) -> None:
+    """The card deletes an image on the TV and its title is forgotten."""
+    catalog = setup_entry.runtime_data.catalog
+    catalog.add("MY_F0002", "Sunset", "Me")
+    client = await hass_ws_client(hass)
+    with patch(
+        "custom_components.remart.frame.FrameClient.async_delete", new=AsyncMock()
+    ) as mock_delete:
+        await client.send_json_auto_id(
+            {
+                "type": "remart/delete_art",
+                "entity_id": ENTITY_ID,
+                "content_id": "MY_F0002",
+            }
+        )
+        msg = await client.receive_json()
+        assert msg["success"]
+        mock_delete.assert_awaited_once()
+        assert mock_delete.await_args.args[1] == "MY_F0002"
+        assert catalog.get("MY_F0002") is None
+
+        await client.send_json_auto_id(
+            {
+                "type": "remart/delete_art",
+                "entity_id": "media_player.other",
+                "content_id": "MY_F0002",
+            }
+        )
+        msg = await client.receive_json()
+        assert msg["error"]["code"] == "not_found"
+
+        catalog.add("MY_F0001", "Kept", None)
+        mock_delete.side_effect = FrameError("TV is off")
+        await client.send_json_auto_id(
+            {
+                "type": "remart/delete_art",
+                "entity_id": ENTITY_ID,
+                "content_id": "MY_F0001",
+            }
+        )
+        msg = await client.receive_json()
+        assert msg["error"] == {"code": "frame_unavailable", "message": "TV is off"}
+        assert catalog.get("MY_F0001") is not None
+
+
 async def test_card_is_served(hass: HomeAssistant, setup_entry, hass_client) -> None:
     """The Lovelace card ships with the integration."""
     client = await hass_client()

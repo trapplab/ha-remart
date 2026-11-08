@@ -34,7 +34,7 @@ class ArtSource(ABC):
     source_id: ClassVar[str]
     name: ClassVar[str]
     requires_api_key: ClassVar[bool] = False
-    # Photo libraries are searched with the configured terms.
+    # Photo libraries are searched with the configured terms or a search.
     searchable: ClassVar[bool] = False
 
     def __init__(
@@ -54,6 +54,10 @@ class ArtSource(ABC):
     @abstractmethod
     async def fetch_page(self, page: int, page_size: int) -> list[Artwork]:
         """Return a 1-based page of artworks, or [] when there are no more."""
+
+    async def search_page(self, query: str, page: int, page_size: int) -> list[Artwork]:
+        """Return a 1-based page of artworks matching the query."""
+        raise NotImplementedError
 
     async def _get_json(
         self,

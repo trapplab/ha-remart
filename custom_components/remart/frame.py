@@ -181,6 +181,28 @@ class FrameClient:
         finally:
             art.close()
 
+    async def async_delete(self, hass: HomeAssistant, content_id: str) -> None:
+        """Delete an image from the Frame's "My Photos"."""
+        async with self._lock:
+            await hass.async_add_executor_job(self._delete, content_id)
+        self._thumbs.pop(content_id, None)
+
+    def _delete(self, content_id: str) -> None:
+        art = self._art(QUERY_TIMEOUT)
+        try:
+            art.open()
+            deleted = art.delete(content_id)
+        except (ConnectionFailure, OSError, WebSocketException) as err:
+            raise FrameError(f"Frame at {self.host} failed: {err}") from err
+        except ResponseError as err:
+            raise FrameError(
+                f"Frame at {self.host} did not delete {content_id}: {err}"
+            ) from err
+        finally:
+            art.close()
+        if not deleted:
+            raise FrameError(f"Frame at {self.host} did not delete {content_id}")
+
     def _activate(self, art: SamsungTVArt, content_id: str) -> None:
         """Switch to art mode and show ``content_id`` on an open connection."""
         assert art.connection
