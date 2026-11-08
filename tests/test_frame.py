@@ -1,0 +1,116 @@
+"""Tests for the TV client (samsungtvws mocked)."""
+
+from unittest.mock import patch
+
+import pytest
+from samsungtvws.exceptions import ConnectionFailure, ResponseError
+
+from homeassistant.core import HomeAssistant
+
+from custom_components.remart.frame import (
+    FrameClient,
+    FrameError,
+    NotAFrameError,
+)
+
+
+@pytest.fixture
+def art():
+    """Mock SamsungTVArt; yields the instance."""
+    with (
+        patch("custom_components.remart.frame.SamsungTVArt") as cls,
+        patch("custom_components.remart.frame.time.sleep"),
+    ):
+        instance = cls.return_value
+        instance.token = None
+        instance.upload.return_value = "MY_F0042"
+        instance.get_artmode.return_value = "off"
+        instance._get_rest_api.return_value.rest_device_info.return_value = {
+            "device": {
+                "FrameTVSupport": "true",
+                "duid": "uuid:abc",
+                "modelName": "QE65LS03",
+                "name": "Frame",
+            }
+        }
+        yield instance
+
+
+async def test_show_full_flow(hass: HomeAssistant, art) -> None:
+    """Upload with matte, art mode on, select the new image, close."""
+    client = FrameClient("192.0.2.10", 8002, "tok", "none")
+    assert await client.async_show(hass, b"jpeg") == "MY_F0042"
+    art.upload.assert_called_once_with(
+        b"jpeg", matte="none", portrait_matte="none", file_type="jpg"
+    )
+    art.set_artmode.assert_called_once_with("on")
+    art.select_image.assert_called_once_with("MY_F0042", category="MY-C0002", show=True)
+    art.close.assert_called_once()
+
+
+async def test_show_skips_artmode_when_on(hass: HomeAssistant, art) -> None:
+    """The TV does not ACK set_artmode when already on, so it is not sent."""
+    art.get_artmode.return_value = "on"
+    await FrameClient("h", 8002, None, "none").async_show(hass, b"jpeg")
+    art.set_artmode.assert_not_called()
+
+
+async def test_show_tolerates_missing_acks(hass: HomeAssistant, art) -> None:
+    """Firmwares that never answer still count as success."""
+    art.get_artmode.side_effect = ConnectionFailure("Websocket Time out")
+    art.set_artmode.side_effect = ConnectionFailure("Websocket Time out")
+    art.select_image.side_effect = ResponseError("no ack")
+    assert (
+        await FrameClient("h", 8002, None, "none").async_show(hass, b"jpeg")
+        == "MY_F0042"
+    )
+
+
+async def test_show_failures(hass: HomeAssistant, art) -> None:
+    """Connection and upload failures become FrameError and close the socket."""
+    client = FrameClient("h", 8002, None, "none")
+    art.open.side_effect = OSError("No route to host")
+    with pytest.raises(FrameError, match="No route"):
+        await client.async_show(hass, b"jpeg")
+    art.open.side_effect = None
+    art.upload.side_effect = ResponseError(
+        "`send_image` request failed with error number -1"
+    )
+    with pytest.raises(FrameError, match="rejected"):
+        await client.async_show(hass, b"jpeg")
+    assert art.close.call_count == 2
+
+
+async def test_show_keeps_new_token(hass: HomeAssistant, art) -> None:
+    """A token handed out on connect is kept for the next call."""
+    art.token = "fresh"
+    client = FrameClient("h", 8002, None, "none")
+    await client.async_show(hass, b"jpeg")
+    assert client.token == "fresh"
+
+
+def test_pair(art) -> None:
+    """Pairing checks art support, opens once and returns device info."""
+    art.token = "paired"
+    client = FrameClient("h", 8002, None, "none")
+    info = client.pair()
+    assert (info.unique_id, info.model, info.name) == ("uuid:abc", "QE65LS03", "Frame")
+    assert client.token == "paired"
+    art.open.assert_called_once()
+
+
+def test_pair_rejects_non_frame(art) -> None:
+    """A regular Samsung TV is refused before any websocket prompt."""
+    art._get_rest_api.return_value.rest_device_info.return_value = {
+        "device": {"FrameTVSupport": "false"}
+    }
+    with pytest.raises(NotAFrameError):
+        FrameClient("h", 8002, None, "none").pair()
+    art.open.assert_not_called()
+
+
+def test_pair_unreachable(art) -> None:
+    """An unreachable TV is a FrameError."""
+    art._get_rest_api.return_value.rest_device_info.side_effect = OSError("timeout")
+    with pytest.raises(FrameError, match="Cannot reach"):
+        FrameClient("h", 8002, None, "none").pair()

@@ -1,0 +1,17 @@
+generate_and_show:
+  target:
+    entity:
+      integration: remart
+      domain: media_player
+  fields:
+    description:
+      required: true
+      example: "A lighthouse in a storm in the style of William Turner"
+      selector:
+        text:
+          multiline: true
+    ai_task_entity:
+      required: false
+      selector:
+        entity:
+          domain: ai_task

@@ -1,0 +1,20 @@
+{
+ "data": [
+  {
+   "_score": 3537280,
+   "id": 28560,
+   "title": "The Bedroom",
+   "date_display": "1889",
+   "artist_display": "Vincent van Gogh (Dutch, 1853–1890)",
+   "image_id": "6644829f-f292-c5c4-a73c-0356a6fdbf0d"
+  },
+  {
+   "_score": 2358186.8,
+   "id": 21023,
+   "title": "Buddha Shakyamuni Seated in Meditation (Dhyanamudra)",
+   "date_display": "Chola period, about 12th century",
+   "artist_display": "India\nNagapattinam, Tamil Nadu",
+   "image_id": "0675f9a9-1a7b-c90a-3bb6-7f7be2afb678"
+  }
+ ]
+}

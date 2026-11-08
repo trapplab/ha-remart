@@ -1,0 +1,61 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Samsung Frame TV verbinden",
+        "description": "Gib die Adresse deines Frame TV ein. Der Fernseher fragt, ob die Verbindung erlaubt werden soll – bestätige das innerhalb von 30 Sekunden mit der Fernbedienung.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "IP-Adresse oder Hostname des Fernsehers.",
+          "port": "8002 (verschlüsselter Websocket) funktioniert bei allen Frame-Modellen seit 2018."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Keine Verbindung zum Fernseher, oder die Verbindungsanfrage wurde abgelehnt. Prüfe, ob der Fernseher an ist, und versuche es erneut.",
+      "not_frame": "Dieser Fernseher unterstützt den Art Mode nicht."
+    },
+    "abort": {
+      "already_configured": "Dieser Fernseher ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "RemArt-Optionen",
+        "data": {
+          "sources": "Kunstquellen",
+          "rijks_api_key": "Rijksmuseum-API-Key",
+          "europeana_api_key": "Europeana-API-Key",
+          "smithsonian_api_key": "Smithsonian-API-Key (api.data.gov)",
+          "matte": "Passepartout",
+          "prompt_prefix": "Präfix für Bild-Prompts"
+        },
+        "data_description": {
+          "sources": "Erscheinen im Medienbrowser unter RemArt. Quellen, die einen API-Key brauchen, werden erst angezeigt, wenn ein Key eingetragen ist.",
+          "matte": "Passepartout für hochgeladene Bilder, z. B. none, modern_apricot oder shadowbox_polar.",
+          "prompt_prefix": "Wird jeder Beschreibung vorangestellt, die an das Bildmodell geht."
+        }
+      }
+    }
+  },
+  "services": {
+    "generate_and_show": {
+      "name": "Generieren und anzeigen",
+      "description": "Erzeugt mit AI Task ein Bild aus einer Beschreibung und zeigt es auf dem Frame.",
+      "fields": {
+        "description": {
+          "name": "Beschreibung",
+          "description": "Was das Bild zeigen soll."
+        },
+        "ai_task_entity": {
+          "name": "AI-Task-Entität",
+          "description": "Entität, die das Bild erzeugt. Standard ist die bevorzugte Bild-Entität aus den AI-Task-Einstellungen."
+        }
+      }
+    }
+  }
+}

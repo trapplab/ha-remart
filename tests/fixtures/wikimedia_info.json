@@ -1,0 +1,90 @@
+{
+ "query": {
+  "pages": {
+   "148275889": {
+    "pageid": 148275889,
+    "title": "File:\"Chiesa di San Giuseppe a Luino, Lago Maggiore\", William Turner.jpg",
+    "imageinfo": [
+     {
+      "thumburl": "https://upload.wikimedia.org/wikipedia/commons/3/33/%22Chiesa_di_San_Giuseppe_a_Luino%2C_Lago_Maggiore%22%2C_William_Turner.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+      "thumbwidth": 1600,
+      "thumbheight": 2325,
+      "thumbattribs": {
+       "src": "https://upload.wikimedia.org/wikipedia/commons/3/33/%22Chiesa_di_San_Giuseppe_a_Luino%2C_Lago_Maggiore%22%2C_William_Turner.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 1600,
+       "height": 2325
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/33/%22Chiesa_di_San_Giuseppe_a_Luino%2C_Lago_Maggiore%22%2C_William_Turner.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:%22Chiesa_di_San_Giuseppe_a_Luino,_Lago_Maggiore%22,_William_Turner.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=148275889",
+      "extmetadata": {
+       "ObjectName": {
+        "value": "\"Chiesa di San Giuseppe a Luino, Lago Maggiore\", William Turner",
+        "source": "mediawiki-metadata"
+       },
+       "DateTimeOriginal": {
+        "value": "1819",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "William Turner",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "Public domain",
+        "source": "commons-desc-page",
+        "hidden": ""
+       }
+      }
+     }
+    ]
+   },
+   "181984460": {
+    "pageid": 181984460,
+    "title": "File:\"Al massira des femmes\".jpg",
+    "imageinfo": [
+     {
+      "thumburl": "https://upload.wikimedia.org/wikipedia/commons/c/c1/%22Al_massira_des_femmes%22.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+      "thumbwidth": 1600,
+      "thumbheight": 1619,
+      "thumbattribs": {
+       "src": "https://upload.wikimedia.org/wikipedia/commons/c/c1/%22Al_massira_des_femmes%22.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 1600,
+       "height": 1619
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/c1/%22Al_massira_des_femmes%22.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:%22Al_massira_des_femmes%22.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=181984460",
+      "extmetadata": {
+       "ObjectName": {
+        "value": "\"Al massira des femmes\"",
+        "source": "mediawiki-metadata"
+       },
+       "DateTimeOriginal": {
+        "value": "7/11/2025",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Il_vento_d%27oro&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Il vento d'oro (page does not exist)\">Il vento d'oro</a>",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "CC BY 4.0",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "LicenseUrl": {
+        "value": "https://creativecommons.org/licenses/by/4.0",
+        "source": "commons-desc-page"
+       }
+      }
+     }
+    ]
+   }
+  }
+ }
+}

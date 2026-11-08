@@ -1,0 +1,48 @@
+{
+ "items": [
+  {
+   "object_number": "KKS5261",
+   "titles": [
+    {
+     "title": "Augustus og den tiburtinske sibylle",
+     "type": "beskrivelse",
+     "language": "dansk"
+    }
+   ],
+   "artist": [
+    "Antonio da Trento"
+   ],
+   "production_date": [
+    {
+     "start": "1500-01-01T00:00:00.000Z",
+     "end": "1550-01-01T00:00:00.000Z",
+     "period": "1500-1550"
+    }
+   ],
+   "image_native": "https://api.smk.dk/api/v1/download/W3siaW1nX3VybCI6Imh0dHBzOi8vaWlwLnNtay5kay9paWlmL2pwMi9xejIwc3g3NzFfa2tzNTI2MS50aWYuanAyL2Z1bGwvZnVsbC8wL25hdGl2ZS5qcGciLCJwdWJsaWNfZG9tYWluIjp0cnVlLCJvYmplY3RfbnVtYmVyIjoiS0tTNTI2MSIsIm51bSI6IiJ9XQ==/KKS5261.jpg",
+   "image_thumbnail": "https://iip-thumb.smk.dk/iiif/jp2/qz20sx771_kks5261.tif.jp2/full/!1024,/0/default.jpg"
+  },
+  {
+   "object_number": "KKSgb22423",
+   "titles": [
+    {
+     "title": "Peters og Paulus' martyrium",
+     "type": "beskrivelse",
+     "language": "dansk"
+    }
+   ],
+   "artist": [
+    "Antonio da Trento"
+   ],
+   "production_date": [
+    {
+     "start": "1500-01-01T00:00:00.000Z",
+     "end": "1550-01-01T00:00:00.000Z",
+     "period": "1500-1550"
+    }
+   ],
+   "image_native": "https://api.smk.dk/api/v1/download/W3siaW1nX3VybCI6Imh0dHBzOi8vaWlwLnNtay5kay9paWlmL2pwMi8xejQwa3g5OWpfa2tzZ2IyMjQyMy50aWYuanAyL2Z1bGwvZnVsbC8wL25hdGl2ZS5qcGciLCJwdWJsaWNfZG9tYWluIjp0cnVlLCJvYmplY3RfbnVtYmVyIjoiS0tTZ2IyMjQyMyIsIm51bSI6IiJ9XQ==/KKSgb22423.jpg",
+   "image_thumbnail": "https://iip-thumb.smk.dk/iiif/jp2/1z40kx99j_kksgb22423.tif.jp2/full/!1024,/0/default.jpg"
+  }
+ ]
+}

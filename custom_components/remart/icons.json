@@ -1,0 +1,7 @@
+{
+  "services": {
+    "generate_and_show": {
+      "service": "mdi:palette"
+    }
+  }
+}
