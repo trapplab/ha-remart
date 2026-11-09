@@ -1,5 +1,12 @@
 # RemArt Frame for Home Assistant
 
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=trapplab&repository=ha-remart&category=integration)
+
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![GitHub Release](https://img.shields.io/github/v/release/trapplab/ha-remart)](https://github.com/trapplab/ha-remart/releases)
+[![Validate](https://github.com/trapplab/ha-remart/actions/workflows/validate.yml/badge.svg)](https://github.com/trapplab/ha-remart/actions/workflows/validate.yml)
+[![License: MIT](https://img.shields.io/github/license/trapplab/ha-remart)](LICENSE)
+
 Show art on a Samsung Frame TV from Home Assistant:
 
 - **Gallery**: browse public-domain artworks from nine museum sources and photos from Unsplash and Pixabay in the media browser and send one to the Frame with a click.
@@ -15,11 +22,25 @@ Images are brought to 16:9 before upload, so the Frame never stretches them: let
 
 ## Installation
 
-**HACS**: add this repository as a custom repository (type *Integration*), install **RemArt Frame** and restart Home Assistant.
+### HACS (recommended)
 
-**Manual**: copy `custom_components/remart` into your `config/custom_components/` folder and restart.
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=trapplab&repository=ha-remart&category=integration)
 
-Then go to *Settings → Devices & services → Add integration → RemArt Frame*, enter the TV's IP address and **accept the prompt on the TV** with the remote within 30 seconds.
+Click the button above, or add it by hand:
+
+1. In Home Assistant open *HACS → ⋮ → Custom repositories*.
+2. Enter `https://github.com/trapplab/ha-remart`, type *Integration*, and click *Add*.
+3. Search for **RemArt Frame**, click *Download* and restart Home Assistant.
+
+### Manual
+
+Copy `custom_components/remart` from the [latest release](https://github.com/trapplab/ha-remart/releases/latest) into your `config/custom_components/` folder and restart Home Assistant.
+
+### Setup
+
+[![Open your Home Assistant instance and start setting up RemArt Frame.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=remart)
+
+Click the button above, or go to *Settings → Devices & services → Add integration → RemArt Frame*. Enter the TV's IP address and **accept the prompt on the TV** with the remote within 30 seconds.
 
 ## Gallery
 
@@ -77,3 +98,9 @@ uv pip install --python .venv/bin/python pytest-homeassistant-custom-component "
 .venv/bin/pytest
 .venv/bin/ruff check custom_components tests
 ```
+
+### Releasing
+
+1. Bump `version` in `custom_components/remart/manifest.json` (and `pyproject.toml`).
+2. Commit, then tag and push: `git tag v0.1.0 && git push origin v0.1.0`.
+3. The *Release* workflow checks that the tag matches the manifest version and publishes a GitHub release, which HACS offers as an update.
