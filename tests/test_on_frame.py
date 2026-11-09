@@ -217,6 +217,7 @@ async def test_websocket_frame_art(
                 "title": None,
                 "artist": None,
                 "current": True,
+                "deletable": True,
                 "media_content_id": (
                     f"media-source://remart/on_frame/{entry_id}/MY_F0001"
                 ),
@@ -227,6 +228,7 @@ async def test_websocket_frame_art(
                 "title": "Sunset",
                 "artist": "Me",
                 "current": False,
+                "deletable": True,
                 "media_content_id": (
                     f"media-source://remart/on_frame/{entry_id}/MY_F0002"
                 ),
@@ -292,6 +294,18 @@ async def test_websocket_delete_art(
         msg = await client.receive_json()
         assert msg["error"] == {"code": "frame_unavailable", "message": "TV is off"}
         assert catalog.get("MY_F0001") is not None
+
+        mock_delete.reset_mock()
+        await client.send_json_auto_id(
+            {
+                "type": "remart/delete_art",
+                "entity_id": ENTITY_ID,
+                "content_id": "SAM-S0700",
+            }
+        )
+        msg = await client.receive_json()
+        assert msg["error"]["code"] == "not_deletable"
+        mock_delete.assert_not_awaited()
 
 
 async def test_card_is_served(hass: HomeAssistant, setup_entry, hass_client) -> None:

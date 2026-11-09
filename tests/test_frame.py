@@ -128,8 +128,29 @@ async def test_list_stored(hass: HomeAssistant, art) -> None:
     stored, current = await FrameClient("h", 8002, None, "none").async_list(hass)
     assert [a.content_id for a in stored] == ["MY_F0002", "MY_F0001"]
     assert current == "MY_F0001"
-    art.available.assert_called_once_with("MY-C0002")
+    art.available.assert_called_once_with()
     art.close.assert_called_once()
+
+
+async def test_list_includes_samsung_art(hass: HomeAssistant, art) -> None:
+    """Samsung's own pictures are listed once, but cannot be deleted."""
+    art.available.return_value = [
+        {"content_id": "MY_F0001", "category_id": "MY-C0002"},
+        {"content_id": "SAM-S0700", "category_id": "MY-C0004"},
+        {"content_id": "SAM-S0700", "category_id": "MY-C0008"},
+        {"content_id": "MY_F0001", "category_id": "MY-C0004"},
+    ]
+    client = FrameClient("h", 8002, None, "none")
+    stored, _ = await client.async_list(hass)
+    by_id = {a.content_id: a for a in stored}
+    assert set(by_id) == {"MY_F0001", "SAM-S0700"}
+    assert by_id["MY_F0001"].deletable
+    assert by_id["SAM-S0700"].category == "MY-C0008"
+    assert not by_id["SAM-S0700"].deletable
+    await client.async_select(hass, "SAM-S0700")
+    art.select_image.assert_called_once_with(
+        "SAM-S0700", category="MY-C0008", show=True
+    )
 
 
 async def test_list_failures(hass: HomeAssistant, art) -> None:
@@ -169,6 +190,16 @@ async def test_thumbnails_are_batched_and_cached(hass: HomeAssistant, art) -> No
 
     client.cache_thumbnail("MY_F0009", b"preview")
     assert await client.async_thumbnail(hass, "MY_F0009") == b"preview"
+
+
+async def test_thumbnails_are_fetched_in_chunks(hass: HomeAssistant, art) -> None:
+    """A large grid is fetched in chunks so the lock is released in between."""
+    art.get_thumbnail.side_effect = lambda cid: cid.encode()
+    client = FrameClient("h", 8002, None, "none")
+    ids = [f"SAM-S{i:04d}" for i in range(30)]
+    results = await asyncio.gather(*(client.async_thumbnail(hass, c) for c in ids))
+    assert results == [c.encode() for c in ids]
+    assert art.open.call_count == 3
 
 
 async def test_thumbnails_unreachable(hass: HomeAssistant, art) -> None:

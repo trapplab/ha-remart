@@ -189,6 +189,7 @@ async def websocket_frame_art(
                     "title": art.title,
                     "artist": art.artist,
                     "current": art.current,
+                    "deletable": art.deletable,
                     "media_content_id": (
                         f"media-source://{DOMAIN}/"
                         f"{frame_identifier(entry_id, art.content_id)}"
@@ -222,6 +223,11 @@ async def websocket_delete_art(
         )
         return
     data = entry.runtime_data
+    if not data.frame.deletable(msg["content_id"]):
+        connection.send_error(
+            msg["id"], "not_deletable", "Only own uploads can be deleted"
+        )
+        return
     try:
         await data.frame.async_delete(hass, msg["content_id"])
     except FrameError as err:

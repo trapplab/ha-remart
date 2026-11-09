@@ -24,6 +24,8 @@ CLIENT_NAME: Final = "HomeAssistant RemArt"
 
 # "My Photos" category on the Frame, where uploaded images live.
 MY_PICTURES_CATEGORY: Final = "MY-C0002"
+# Favourites repeat images that also live in another category.
+FAVORITES_CATEGORY: Final = "MY-C0004"
 
 PAGE_SIZE: Final = 20
 PAGE_CACHE_TTL: Final = 3600

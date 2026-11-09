@@ -12,7 +12,7 @@ from websocket import WebSocketException
 
 from homeassistant.core import HomeAssistant
 
-from .const import CLIENT_NAME, MY_PICTURES_CATEGORY
+from .const import CLIENT_NAME, FAVORITES_CATEGORY, MY_PICTURES_CATEGORY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +29,9 @@ THUMB_CACHE_SIZE = 300
 # A media browser grid asks for its thumbnails within a few milliseconds;
 # collect them into one request to the TV.
 THUMB_BATCH_DELAY = 0.1
+# Thumbnails fetched per turn; the lock is released in between so that
+# selecting or uploading an image does not wait for a whole grid.
+THUMB_BATCH_SIZE = 12
 
 
 class FrameError(Exception):
@@ -45,6 +48,14 @@ class StoredArt:
 
     content_id: str
     date: str | None = None
+    category: str | None = None
+
+    @property
+    def deletable(self) -> bool:
+        """Only own uploads can be deleted; Samsung's art stays."""
+        if self.category is None:
+            return self.content_id.startswith("MY_F")
+        return self.category == MY_PICTURES_CATEGORY
 
 
 @dataclass(slots=True)
@@ -69,6 +80,7 @@ class FrameClient:
         self._thumbs: OrderedDict[str, bytes] = OrderedDict()
         self._thumb_waiters: dict[str, asyncio.Future[bytes | None]] = {}
         self._thumb_task: asyncio.Task[None] | None = None
+        self._categories: dict[str, str] = {}
 
     def _art(self, timeout: float) -> SamsungTVArt:
         return SamsungTVArt(
@@ -137,7 +149,7 @@ class FrameClient:
     async def async_list(
         self, hass: HomeAssistant
     ) -> tuple[list[StoredArt], str | None]:
-        """Return the uploaded images, newest first, and the shown content id."""
+        """Return the stored images, newest first, and the shown content id."""
         async with self._lock:
             return await hass.async_add_executor_job(self._list)
 
@@ -145,7 +157,9 @@ class FrameClient:
         art = self._art(QUERY_TIMEOUT)
         try:
             art.open()
-            items = art.available(MY_PICTURES_CATEGORY)
+            # Without a category the TV lists everything it stores: own
+            # uploads as well as Samsung's free and Art Store pictures.
+            items = art.available()
             assert art.connection
             art.connection.settimeout(ACK_TIMEOUT)
             try:
@@ -158,13 +172,39 @@ class FrameClient:
             raise FrameError(f"Frame at {self.host} sent no art list: {err}") from err
         finally:
             art.close()
-        stored = [
-            StoredArt(str(item["content_id"]), item.get("image_date") or None)
-            for item in items or []
-            if isinstance(item, dict) and item.get("content_id")
-        ]
+        by_id: dict[str, StoredArt] = {}
+        for item in items or []:
+            if not isinstance(item, dict) or not item.get("content_id"):
+                continue
+            content_id = str(item["content_id"])
+            category = item.get("category_id") or None
+            known = by_id.get(content_id)
+            # Favourites show up a second time in their own category.
+            if known is not None and known.category == MY_PICTURES_CATEGORY:
+                continue
+            if known is not None and category == FAVORITES_CATEGORY:
+                continue
+            by_id[content_id] = StoredArt(
+                content_id, item.get("image_date") or None, category
+            )
+        self._categories = {
+            art.content_id: art.category for art in by_id.values() if art.category
+        }
+        stored = list(by_id.values())
         stored.sort(key=lambda a: a.date or "", reverse=True)
         return stored, current
+
+    def category(self, content_id: str) -> str | None:
+        """Return the category of a stored image, as last listed."""
+        if (category := self._categories.get(content_id)) is not None:
+            return category
+        if content_id.startswith("MY_F"):
+            return MY_PICTURES_CATEGORY
+        return None
+
+    def deletable(self, content_id: str) -> bool:
+        """Return whether a stored image is an own upload."""
+        return self.category(content_id) == MY_PICTURES_CATEGORY
 
     async def async_select(self, hass: HomeAssistant, content_id: str) -> None:
         """Show an image that is already stored on the Frame."""
@@ -175,7 +215,7 @@ class FrameClient:
         art = self._art(QUERY_TIMEOUT)
         try:
             art.open()
-            self._activate(art, content_id)
+            self._activate(art, content_id, self.category(content_id))
         except (ConnectionFailure, OSError, WebSocketException) as err:
             raise FrameError(f"Frame at {self.host} failed: {err}") from err
         finally:
@@ -203,7 +243,12 @@ class FrameClient:
         if not deleted:
             raise FrameError(f"Frame at {self.host} did not delete {content_id}")
 
-    def _activate(self, art: SamsungTVArt, content_id: str) -> None:
+    def _activate(
+        self,
+        art: SamsungTVArt,
+        content_id: str,
+        category: str | None = MY_PICTURES_CATEGORY,
+    ) -> None:
         """Switch to art mode and show ``content_id`` on an open connection."""
         assert art.connection
         art.connection.settimeout(ACK_TIMEOUT)
@@ -219,7 +264,7 @@ class FrameClient:
             except ConnectionFailure, ResponseError:
                 _LOGGER.debug("No ACK for set_artmode, continuing")
         try:
-            art.select_image(content_id, category=MY_PICTURES_CATEGORY, show=True)
+            art.select_image(content_id, category=category, show=True)
         except ConnectionFailure, ResponseError:
             # Some firmwares never answer but show the image anyway.
             _LOGGER.debug("No ACK for select_image, continuing")
@@ -259,8 +304,9 @@ class FrameClient:
         while self._thumb_waiters:
             await asyncio.sleep(THUMB_BATCH_DELAY)
             async with self._lock:
-                batch = self._thumb_waiters
-                self._thumb_waiters = {}
+                batch = dict(list(self._thumb_waiters.items())[:THUMB_BATCH_SIZE])
+                for content_id in batch:
+                    del self._thumb_waiters[content_id]
                 try:
                     found = await hass.async_add_executor_job(
                         self._thumbnails, list(batch)

@@ -123,6 +123,7 @@ class RemArtFrameCard extends HTMLElement {
     super();
     this._instance = ++debugInstances + "-" + Math.random().toString(36).slice(2, 6);
     this._thumbs = new Map();
+    this._observer = null;
     this._items = null;
     this._busy = false;
     this._loading = false;
@@ -284,6 +285,10 @@ class RemArtFrameCard extends HTMLElement {
 
   disconnectedCallback() {
     this._debug("disconnected");
+    if (this._observer) {
+      this._observer.disconnect();
+      this._observer = null;
+    }
   }
 
   _renderHeader() {
@@ -423,8 +428,27 @@ class RemArtFrameCard extends HTMLElement {
     }
   }
 
+  _thumbObserver() {
+    if (!this._observer) {
+      // Thumbnails come from the TV; only ask for the ones that are visible.
+      this._observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            this._observer.unobserve(entry.target);
+            entry.target._loadThumb();
+          }
+        },
+        { rootMargin: "200px" }
+      );
+    }
+    return this._observer;
+  }
+
   _renderGrid() {
     const grid = this.shadowRoot.querySelector(".grid");
+    const observer = this._thumbObserver();
+    observer.disconnect();
     grid.replaceChildren(
       ...this._items.map((item) => {
         const tile = document.createElement("div");
@@ -433,10 +457,11 @@ class RemArtFrameCard extends HTMLElement {
         tile.title = label || item.content_id;
         const img = document.createElement("img");
         img.alt = tile.title;
-        img.loading = "lazy";
-        this._thumbnail(item).then((src) => {
-          if (src) img.src = src;
-        });
+        tile._loadThumb = () =>
+          this._thumbnail(item).then((src) => {
+            if (src) img.src = src;
+          });
+        observer.observe(tile);
         tile.append(img);
         if (label) {
           const caption = document.createElement("div");
@@ -450,19 +475,21 @@ class RemArtFrameCard extends HTMLElement {
           badge.textContent = this._t("shown");
           tile.append(badge);
         }
-        const del = document.createElement("button");
-        del.className = "delete";
-        del.title = this._t("delete");
-        del.setAttribute("aria-label", this._t("delete"));
-        const icon = document.createElement("ha-icon");
-        icon.icon = "mdi:delete-outline";
-        del.append(icon);
-        del.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          this._delete(item, tile, label || item.content_id);
-        });
-        tile.append(del);
-        this._addLongPress(tile);
+        if (item.deletable !== false) {
+          const del = document.createElement("button");
+          del.className = "delete";
+          del.title = this._t("delete");
+          del.setAttribute("aria-label", this._t("delete"));
+          const icon = document.createElement("ha-icon");
+          icon.icon = "mdi:delete-outline";
+          del.append(icon);
+          del.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            this._delete(item, tile, label || item.content_id);
+          });
+          tile.append(del);
+          this._addLongPress(tile);
+        }
         tile.addEventListener("click", (ev) => {
           if (tile._longPressed) {
             tile._longPressed = false;

@@ -30,6 +30,7 @@ class FrameArt:
     title: str | None
     artist: str | None
     current: bool
+    deletable: bool = True
 
 
 class Catalog:
@@ -83,6 +84,7 @@ class Catalog:
                     known["title"],
                     known["artist"],
                     art.content_id == current,
+                    art.deletable,
                 )
             )
         items.sort(key=lambda item: not item.current)
