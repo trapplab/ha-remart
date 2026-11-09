@@ -1,7 +1,7 @@
 {
   "domain": "remart",
   "name": "RemArt Frame",
-  "after_dependencies": ["ai_task", "frontend", "llm"],
+  "after_dependencies": ["frontend"],
   "codeowners": ["@trapplab"],
   "config_flow": true,
   "dependencies": ["http", "media_source", "websocket_api"],

@@ -1,19 +1,14 @@
-"""RemArt Frame: show museum art and AI images on a Samsung Frame TV."""
+"""RemArt Frame: show museum art and photos on a Samsung Frame TV."""
 
-import probatio
-
-from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
-from homeassistant.core import HomeAssistant, SupportsResponse
-from homeassistant.helpers import config_validation as cv, service
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
 from .api import async_setup_api
 from .catalog import Catalog
 from .const import (
-    ATTR_AI_TASK_ENTITY,
-    ATTR_DESCRIPTION,
     CONF_MATTE,
     CONF_PHOTO_QUERY,
     CONF_SOURCES,
@@ -21,7 +16,6 @@ from .const import (
     DEFAULT_MATTE,
     DEFAULT_PHOTO_QUERY,
     DOMAIN,
-    SERVICE_GENERATE_AND_SHOW,
 )
 from .frame import FrameClient
 from .gallery import Gallery
@@ -39,19 +33,7 @@ def api_key_option(source_id: str) -> str:
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register the integration's services."""
-    service.async_register_platform_entity_service(
-        hass,
-        DOMAIN,
-        SERVICE_GENERATE_AND_SHOW,
-        entity_domain=MEDIA_PLAYER_DOMAIN,
-        schema={
-            probatio.Required(ATTR_DESCRIPTION): cv.string,
-            probatio.Optional(ATTR_AI_TASK_ENTITY): cv.entity_domain("ai_task"),
-        },
-        func="async_generate_and_show",
-        supports_response=SupportsResponse.OPTIONAL,
-    )
+    """Set up the HTTP and websocket API."""
     await async_setup_api(hass)
     return True
 

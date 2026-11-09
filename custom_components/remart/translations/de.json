@@ -49,31 +49,13 @@
           "pixabay_api_key": "Pixabay-API-Key",
           "photo_query": "Suchbegriffe für Fotos",
           "fit": "An Bildschirm anpassen",
-          "matte": "Passepartout",
-          "prompt_prefix": "Präfix für Bild-Prompts"
+          "matte": "Passepartout"
         },
         "data_description": {
           "sources": "Erscheinen im Medienbrowser unter RemArt. Quellen, die einen API-Key brauchen, werden erst angezeigt, wenn ein Key eingetragen ist.",
           "photo_query": "Wonach Unsplash und Pixabay suchen, z. B. landscape, ocean oder abstract art.",
           "fit": "Wie Bilder angezeigt werden, die nicht 16:9 sind. Letterbox zeigt das ganze Bild mit schwarzen Balken; Zuschneiden füllt den Bildschirm ohne Balken und schneidet die Ränder ab.",
-          "matte": "Passepartout für hochgeladene Bilder, z. B. none, modern_apricot oder shadowbox_polar.",
-          "prompt_prefix": "Wird jeder Beschreibung vorangestellt, die an das Bildmodell geht."
-        }
-      }
-    }
-  },
-  "services": {
-    "generate_and_show": {
-      "name": "Generieren und anzeigen",
-      "description": "Erzeugt mit AI Task ein Bild aus einer Beschreibung und zeigt es auf dem Frame.",
-      "fields": {
-        "description": {
-          "name": "Beschreibung",
-          "description": "Was das Bild zeigen soll."
-        },
-        "ai_task_entity": {
-          "name": "AI-Task-Entität",
-          "description": "Entität, die das Bild erzeugt. Standard ist die bevorzugte Bild-Entität aus den AI-Task-Einstellungen."
+          "matte": "Passepartout für hochgeladene Bilder, z. B. none, modern_apricot oder shadowbox_polar."
         }
       }
     }

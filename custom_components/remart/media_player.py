@@ -1,6 +1,5 @@
 """The Frame as a media player that 'plays' images in art mode."""
 
-import asyncio
 from typing import Any
 
 import aiohttp
@@ -15,7 +14,7 @@ from homeassistant.components.media_player import (
     MediaType,
     async_process_play_media_url,
 )
-from homeassistant.core import HomeAssistant, ServiceResponse
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -23,13 +22,10 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
     CONF_FIT,
-    CONF_PROMPT_PREFIX,
     CONF_TOKEN,
     DEFAULT_FIT,
-    DEFAULT_PROMPT_PREFIX,
     DOMAIN,
     FIT_CROP,
-    GENERATE_TIMEOUT,
 )
 from .frame import FrameError
 from .imaging import fit_to_frame, make_preview
@@ -220,42 +216,6 @@ class FrameArtPlayer(MediaPlayerEntity):
         self._attr_media_artist = artist
         self._attr_state = MediaPlayerState.ON
         self.async_write_ha_state()
-
-    async def async_generate_and_show(
-        self, description: str, ai_task_entity: str | None = None
-    ) -> ServiceResponse:
-        """Generate an image with AI Task and show it on the Frame."""
-        prefix = self._entry.options.get(CONF_PROMPT_PREFIX, DEFAULT_PROMPT_PREFIX)
-        data: dict[str, Any] = {
-            "task_name": "frame art",
-            "instructions": f"{prefix}{description}",
-        }
-        if ai_task_entity:
-            data["entity_id"] = ai_task_entity
-        try:
-            async with asyncio.timeout(GENERATE_TIMEOUT):
-                result = await self.hass.services.async_call(
-                    "ai_task",
-                    "generate_image",
-                    data,
-                    blocking=True,
-                    context=self._context,
-                    return_response=True,
-                )
-        except TimeoutError as err:
-            raise HomeAssistantError(
-                f"Image generation took longer than {GENERATE_TIMEOUT} s"
-            ) from err
-        assert isinstance(result, dict)
-        media_source_id = str(result["media_source_id"])
-        content_id = await self.async_display(
-            media_source_id, title=description, artist=str(result.get("model") or "AI")
-        )
-        return {
-            "content_id": content_id,
-            "media_source_id": media_source_id,
-            "revised_prompt": result.get("revised_prompt"),
-        }
 
     async def _async_gallery_artwork(self, identifier: str) -> Artwork | None:
         parsed = parse_identifier(identifier)

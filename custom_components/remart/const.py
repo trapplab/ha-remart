@@ -7,7 +7,6 @@ DOMAIN: Final = "remart"
 CONF_TOKEN: Final = "token"
 CONF_SOURCES: Final = "sources"
 CONF_MATTE: Final = "matte"
-CONF_PROMPT_PREFIX: Final = "prompt_prefix"
 CONF_PHOTO_QUERY: Final = "photo_query"
 CONF_FIT: Final = "fit"
 
@@ -19,10 +18,6 @@ DEFAULT_PHOTO_QUERY: Final = "landscape"
 FIT_LETTERBOX: Final = "letterbox"
 FIT_CROP: Final = "crop"
 DEFAULT_FIT: Final = FIT_LETTERBOX
-DEFAULT_PROMPT_PREFIX: Final = (
-    "A fine-art painting in 16:9 landscape format for a framed art TV. "
-    "No text, no lettering, no borders, no frame. Subject: "
-)
 
 # Name shown in the TV's "allow device" prompt.
 CLIENT_NAME: Final = "HomeAssistant RemArt"
@@ -35,11 +30,3 @@ PAGE_CACHE_TTL: Final = 3600
 
 # Frame panels are 16:9; larger images are scaled down to 4K.
 MAX_WIDTH: Final = 3840
-
-# Seconds to wait for the image model before giving up.
-GENERATE_TIMEOUT: Final = 180
-
-ATTR_DESCRIPTION: Final = "description"
-ATTR_AI_TASK_ENTITY: Final = "ai_task_entity"
-
-SERVICE_GENERATE_AND_SHOW: Final = "generate_and_show"

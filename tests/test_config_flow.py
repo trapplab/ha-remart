@@ -9,7 +9,6 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.remart.const import (
     CONF_MATTE,
-    CONF_PROMPT_PREFIX,
     CONF_SOURCES,
     CONF_TOKEN,
     DOMAIN,
@@ -98,7 +97,6 @@ async def test_options_flow(hass: HomeAssistant, setup_entry) -> None:
             "photo_query": "ocean",
             "fit": "crop",
             CONF_MATTE: "none",
-            CONF_PROMPT_PREFIX: "Oil painting: ",
         },
     )
     await hass.async_block_till_done()

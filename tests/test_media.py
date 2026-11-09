@@ -14,10 +14,9 @@ from homeassistant.components.media_player import (
     SERVICE_PLAY_MEDIA,
 )
 from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.remart.const import DOMAIN
 from custom_components.remart.frame import FrameError
 
 from .conftest import png_bytes
@@ -265,72 +264,3 @@ async def test_token_is_persisted(
         blocking=True,
     )
     assert setup_entry.data["token"] == "rotated"
-
-
-@pytest.fixture
-async def fake_ai_task(hass: HomeAssistant, tmp_path):
-    """Register ai_task.generate_image writing a PNG into a local media dir."""
-    hass.config.media_dirs = {"local": str(tmp_path)}
-    (tmp_path / "ai.png").write_bytes(png_bytes(1024, 1024, (10, 120, 200)))
-    calls: list[ServiceCall] = []
-
-    async def generate(call: ServiceCall):
-        calls.append(call)
-        return {
-            "media_source_id": "media-source://media_source/local/ai.png",
-            "revised_prompt": "revised: " + call.data["instructions"],
-            "model": "gpt-image-1",
-        }
-
-    hass.services.async_register(
-        "ai_task", "generate_image", generate, supports_response=SupportsResponse.ONLY
-    )
-    return calls
-
-
-async def test_generate_and_show(
-    hass: HomeAssistant, fake_ai_task, setup_entry, mock_show
-) -> None:
-    """The service prompts AI Task, then shows the local result on the Frame."""
-    response = await hass.services.async_call(
-        DOMAIN,
-        "generate_and_show",
-        {ATTR_ENTITY_ID: ENTITY_ID, "description": "a lighthouse in a storm"},
-        blocking=True,
-        return_response=True,
-    )
-    (call,) = fake_ai_task
-    assert call.data["instructions"].endswith("Subject: a lighthouse in a storm")
-    assert "entity_id" not in call.data
-    assert response[ENTITY_ID]["content_id"] == "MY_F0001"
-    assert response[ENTITY_ID]["revised_prompt"].startswith("revised: ")
-    assert _image_size(mock_show.await_args.args[1]) == (1820, 1024)
-
-    state = hass.states.get(ENTITY_ID)
-    assert state.attributes["media_title"] == "a lighthouse in a storm"
-    assert state.attributes["media_artist"] == "gpt-image-1"
-
-
-async def test_generate_timeout(hass: HomeAssistant, setup_entry, mock_show) -> None:
-    """A hanging image model is reported, not waited on forever."""
-
-    async def hang(call):
-        import asyncio
-
-        await asyncio.sleep(3600)
-
-    hass.services.async_register(
-        "ai_task", "generate_image", hang, supports_response=SupportsResponse.ONLY
-    )
-    with (
-        patch("custom_components.remart.media_player.GENERATE_TIMEOUT", 0.05),
-        pytest.raises(HomeAssistantError, match="longer than"),
-    ):
-        await hass.services.async_call(
-            DOMAIN,
-            "generate_and_show",
-            {ATTR_ENTITY_ID: ENTITY_ID, "description": "x"},
-            blocking=True,
-            return_response=True,
-        )
-    mock_show.assert_not_awaited()

@@ -26,14 +26,12 @@ from .const import (
     CONF_FIT,
     CONF_MATTE,
     CONF_PHOTO_QUERY,
-    CONF_PROMPT_PREFIX,
     CONF_SOURCES,
     CONF_TOKEN,
     DEFAULT_FIT,
     DEFAULT_MATTE,
     DEFAULT_PHOTO_QUERY,
     DEFAULT_PORT,
-    DEFAULT_PROMPT_PREFIX,
     DOMAIN,
     FIT_CROP,
     FIT_LETTERBOX,
@@ -138,7 +136,7 @@ class RemArtConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class RemArtOptionsFlow(OptionsFlowWithReload):
-    """Choose sources, API keys, image fit, matte and prompt."""
+    """Choose sources, API keys, image fit and matte."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -171,16 +169,12 @@ class RemArtOptionsFlow(OptionsFlowWithReload):
             )
         )
         schema[probatio.Required(CONF_MATTE)] = str
-        schema[probatio.Required(CONF_PROMPT_PREFIX)] = TextSelector(
-            TextSelectorConfig(multiline=True)
-        )
 
         current = {
             CONF_SOURCES: KEYLESS_SOURCES,
             CONF_FIT: DEFAULT_FIT,
             CONF_MATTE: DEFAULT_MATTE,
             CONF_PHOTO_QUERY: DEFAULT_PHOTO_QUERY,
-            CONF_PROMPT_PREFIX: DEFAULT_PROMPT_PREFIX,
             **self.config_entry.options,
         }
         return self.async_show_form(

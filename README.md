@@ -5,7 +5,6 @@ Show art on a Samsung Frame TV from Home Assistant:
 - **Gallery**: browse public-domain artworks from nine museum sources and photos from Unsplash and Pixabay in the media browser and send one to the Frame with a click.
 - **Drag & drop**: drop your own pictures onto the RemArt Frame card to show them on the TV.
 - **On the Frame**: see the images stored on the TV, with the one currently shown first, and switch between them without uploading again.
-- **AI art by voice**: tell your voice assistant what you want to see. Home Assistant generates the image and shows it on the Frame.
 
 Images are brought to 16:9 before upload, so the Frame never stretches them: letterboxed on black by default, or cropped to fill the screen.
 
@@ -13,7 +12,6 @@ Images are brought to 16:9 before upload, so the Frame never stretches them: let
 
 - Home Assistant 2026.10 or newer
 - A Samsung Frame TV (2018 or newer) on the same network
-- For AI art: an AI Task entity that can generate images (see below)
 
 ## Installation
 
@@ -33,7 +31,7 @@ Open *Media* in the sidebar, pick the Frame as the target player (bottom right),
 | Rijksmuseum, Europeana, Smithsonian (api.data.gov) | needed, enter it in the options |
 | Unsplash, Pixabay (photos) | needed, free at [unsplash.com/developers](https://unsplash.com/developers) and [pixabay.com/api/docs](https://pixabay.com/api/docs/) |
 
-Choose sources, API keys, the photo search terms for Unsplash and Pixabay (default `landscape`), how images that are not 16:9 are fitted (letterbox with black bars, the default, or crop to fill the screen), the matte (passe-partout) and the image prompt prefix under *Configure* on the integration.
+Choose sources, API keys, the photo search terms for Unsplash and Pixabay (default `landscape`), how images that are not 16:9 are fitted (letterbox with black bars, the default, or crop to fill the screen), and the matte (passe-partout) under *Configure* on the integration.
 
 In the media browser, the search field in the Unsplash and Pixabay folders asks the library itself for new photos instead of filtering the listed ones (needs a Home Assistant version whose media browser supports search).
 
@@ -65,35 +63,6 @@ data:
   media_content_id: https://example.org/picture.jpg
   media_content_type: image/jpeg
 ```
-
-## AI art
-
-### 1. Set up an image generator
-
-Set up an integration that provides AI Task image generation, for example **OpenAI** (needs an API key; each image is billed by OpenAI) or **Google Gemini**. Add an *AI Task* service to it and choose it as the preferred entity for **generating images** in Home Assistant's AI Task settings. Alternatively, pass the entity explicitly with `ai_task_entity` (see below).
-
-### 2. Try it
-
-*Developer tools → Actions*:
-
-```yaml
-action: remart.generate_and_show
-target:
-  entity_id: media_player.living_room_frame
-data:
-  description: A lighthouse in a storm in the style of William Turner
-  # ai_task_entity: ai_task.openai_ai_task  # optional, defaults to the preferred entity
-```
-
-The response contains the TV's `content_id`, the generated image's `media_source_id` and the prompt the model actually used. Generated images are also kept in *Media → AI generated images*.
-
-### 3. Use it by voice
-
-Use a conversation agent that is backed by an LLM (OpenAI, Google Gemini, Anthropic, Ollama …) with **Control Home Assistant → Assist** enabled, and **expose the Frame entity** to Assist (*Settings → Voice assistants → Expose*). The agent then gets a `GenerateFrameArt` tool and you can say things like:
-
-> "Paint me a foggy autumn forest in the style of Caspar David Friedrich on the Frame."
-
-Generating takes 10–60 seconds; the assistant answers when the picture is on the TV.
 
 ## Troubleshooting
 
