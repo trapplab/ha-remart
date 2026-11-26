@@ -94,7 +94,7 @@ data:
 
 ```bash
 uv venv --python 3.14 .venv
-uv pip install --python .venv/bin/python pytest-homeassistant-custom-component "samsungtvws[async,encrypted]==3.0.6" hassil home-assistant-intents gazetteer-matcher ruff
+uv pip install --python .venv/bin/python pytest-homeassistant-custom-component "samsungtvws[async,encrypted]==3.0.7" hassil home-assistant-intents gazetteer-matcher ruff
 .venv/bin/pytest
 .venv/bin/ruff check custom_components tests
 ```
